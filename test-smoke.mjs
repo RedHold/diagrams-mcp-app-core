@@ -28,10 +28,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Test keys are rate-limited to 20/min; this harness fires calls far faster than
 // a real (human-paced) MCP client would, so transparently retry on 429. The
 // server itself does NOT auto-retry — it honestly surfaces the rate limit.
+// LLM tools (generate/edit/fix/relayout/clarify) can take longer than the MCP
+// SDK's 60s default request timeout, which would THROW and crash the run — give
+// each call up to 200s (matches the server's 180s API safety-net + margin), and
+// turn any thrown error (timeout, transport) into a soft failure instead of an
+// unhandled rejection that kills the whole harness.
+const CALL_TIMEOUT_MS = 200_000;
 const call = async (name, args = {}, { expectError = false } = {}) => {
   let r;
   for (let attempt = 0; attempt < 5; attempt++) {
-    r = await client.callTool({ name, arguments: args });
+    try {
+      r = await client.callTool({ name, arguments: args }, undefined, { timeout: CALL_TIMEOUT_MS });
+    } catch (e) {
+      r = { isError: true, content: [{ type: "text", text: `threw: ${e?.message || e}` }] };
+    }
     if (r.isError && /RATE_LIMITED/.test(text(r))) { await sleep(1600); continue; }
     break;
   }
