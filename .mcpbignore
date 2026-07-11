@@ -1,5 +1,9 @@
 src
+scripts
+.github
 test-smoke.mjs
 tsconfig.json
+package-lock.json
+.gitignore
 *.map
 .mcpbignore

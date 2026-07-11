@@ -1,5 +1,7 @@
 # @diagrams-so/mcp
 
+[![CI](https://github.com/redhold-yuvraj/diagrams-so-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/redhold-yuvraj/diagrams-so-mcp/actions/workflows/ci.yml)
+
 The **Diagrams.so MCP server** — generate, edit, and manage cloud architecture diagrams from any MCP client (Claude Desktop, Claude Code, Cursor). It's a thin stdio client over the public Diagrams.so API (`/api/v2`); every tool is one REST call.
 
 ## Tools (22)
@@ -95,6 +97,26 @@ npm run build && npx @anthropic-ai/mcpb pack
 DIAGRAMS_API_KEY=dgz_live_your_key node test-smoke.mjs
 ```
 Runs the full flow (connect → list tools → whoami → generate → warnings → fix → export → error handling).
+
+## Continuous integration & releases
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| **CI** (`ci.yml`) | every push / PR | `npm ci` + `npm run build` on Node 18/20/22, then a **free** smoke (`scripts/ci-smoke.mjs`) that launches the built server and asserts all 22 tools register. **No API calls, no credits.** |
+| **Live smoke** (`live-smoke.yml`) | nightly + manual | the full end-to-end flow (`test-smoke.mjs`) against the real API. **Spends credits** — runs only when the `DIAGRAMS_API_KEY` secret is set. |
+| **Release** (`release.yml`) | tag `vX.Y.Z` | build → `npm prune --omit=dev` → pack `diagrams-so.mcpb` → attach to a GitHub Release. Publishes to npm too if an `NPM_TOKEN` secret is set. |
+
+**Cut a release:**
+```bash
+# bump "version" in package.json + manifest.json to match, commit, then:
+git tag v1.1.0 && git push origin v1.1.0
+```
+The tag must match `package.json`'s `version` (the workflow enforces this). The
+`.mcpb` bundle appears on the GitHub Release; manual `workflow_dispatch` produces
+it as a downloadable artifact without publishing (handy for testing a bundle).
+
+**Repo secrets/variables (optional):** `DIAGRAMS_API_KEY` (live smoke),
+`NPM_TOKEN` (npm publish), `DIAGRAMS_API_BASE` variable (non-prod live-smoke target).
 
 ## Notes
 - **stdout is the MCP channel** — the server logs only to stderr.

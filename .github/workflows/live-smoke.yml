@@ -1,0 +1,36 @@
+name: Live smoke
+
+# Full end-to-end flow against the REAL Diagrams.so API (import → versions →
+# export → generate → edit → fix → relayout → delete). This SPENDS CREDITS, so
+# it does NOT run on every push — only nightly and on manual dispatch, and only
+# when a DIAGRAMS_API_KEY secret is configured.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *' # 06:17 UTC nightly
+
+jobs:
+  live-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Full live smoke (spends credits)
+        env:
+          DIAGRAMS_API_KEY: ${{ secrets.DIAGRAMS_API_KEY }}
+          # Override via repo variable if you point at a non-prod API.
+          DIAGRAMS_API_BASE: ${{ vars.DIAGRAMS_API_BASE || 'https://api.diagrams.so/api/v2' }}
+        run: |
+          if [ -z "$DIAGRAMS_API_KEY" ]; then
+            echo "::warning::DIAGRAMS_API_KEY secret not set — skipping live smoke."
+            exit 0
+          fi
+          node test-smoke.mjs

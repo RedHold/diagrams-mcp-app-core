@@ -1,0 +1,78 @@
+name: Release
+
+# On a version tag (vX.Y.Z): build, pack the one-click MCPB bundle, and attach
+# it to a GitHub Release. Optionally publishes to npm if an NPM_TOKEN secret is
+# set. Manual dispatch runs a dry pack (no release/publish) and uploads the
+# .mcpb as a workflow artifact so you can test the bundle before tagging.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write # create releases + upload assets
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci
+
+      - name: Build (tsc)
+        run: npm run build
+
+      - name: Smoke — all 22 tools register
+        run: node scripts/ci-smoke.mjs
+        env:
+          DIAGRAMS_API_KEY: dgz_test_ci_dummy_no_calls
+
+      - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          TAG=${GITHUB_REF_NAME#v}
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $PKG"
+            exit 1
+          fi
+          echo "tag matches package.json ($PKG)"
+
+      - name: Slim node_modules to production deps
+        run: npm prune --omit=dev
+
+      - name: Pack MCPB bundle
+        run: npx --yes @anthropic-ai/mcpb pack . diagrams-so.mcpb
+
+      - name: Upload .mcpb as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagrams-so-mcpb
+          path: diagrams-so.mcpb
+
+      - name: Attach .mcpb to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" diagrams-so.mcpb \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
+
+      - name: Publish to npm (only if NPM_TOKEN is set)
+        if: startsWith(github.ref, 'refs/tags/v') && env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # dist is already built; --ignore-scripts skips the prepare rebuild that
+        # would otherwise fail after dev deps (typescript) were pruned above.
+        run: npm publish --access public --ignore-scripts

@@ -1,0 +1,37 @@
+name: CI
+
+# Build + a free, no-network smoke on every push/PR. Verifies the server
+# compiles and that all 22 tools register. Does NOT touch the live API or spend
+# credits — the credit-spending flow lives in live-smoke.yml.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build (tsc)
+        run: npm run build
+
+      - name: Smoke — server launches & all 22 tools register (no API calls)
+        run: node scripts/ci-smoke.mjs
+        env:
+          # Dummy key — the smoke makes zero API calls, so nothing is billed.
+          DIAGRAMS_API_KEY: dgz_test_ci_dummy_no_calls
