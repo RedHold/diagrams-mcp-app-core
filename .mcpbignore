@@ -1,0 +1,5 @@
+src
+test-smoke.mjs
+tsconfig.json
+*.map
+.mcpbignore
