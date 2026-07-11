@@ -4,6 +4,32 @@
 
 The **Diagrams.so MCP server** — generate, edit, and manage cloud architecture diagrams from any MCP client (Claude Desktop, Claude Code, Cursor). It's a thin stdio client over the public Diagrams.so API (`/api/v2`); every tool is one REST call.
 
+## Quick start
+
+Needs **Node ≥ 18** and a **Diagrams.so API key** (`dgz_live_…` or `dgz_test_…`) from diagrams.so → Settings → API Keys.
+
+```bash
+# 1. clone & build
+git clone https://github.com/redhold-yuvraj/diagrams-so-mcp.git
+cd diagrams-so-mcp
+npm install          # installs deps and builds dist/ (via the prepare hook)
+
+# 2. (optional) confirm the server launches and all 22 tools register — no API calls, no credits
+node scripts/ci-smoke.mjs
+
+# 3. add it to Claude Code (use the ABSOLUTE path printed by `pwd`)
+claude mcp add diagrams-so \
+  --env DIAGRAMS_API_KEY=dgz_live_your_key \
+  --env DIAGRAMS_API_BASE=https://api.diagrams.so/api/v2 \
+  -- node "$(pwd)/dist/index.js"
+```
+
+Restart your client, then ask: *"Generate an AWS 3-tier web app diagram and show me the warnings."*
+
+> **Set `DIAGRAMS_API_BASE` explicitly** — it defaults to `http://localhost:8000/api/v2` (local dev). Use `https://api.diagrams.so/api/v2` for production.
+
+Using Claude Desktop or Cursor instead of the CLI? See [Add it to your MCP client](#add-it-to-your-mcp-client). Prefer a one-click, no-terminal install? See [One-click install (MCPB)](#one-click-install-mcpb).
+
 ## Tools (22)
 
 **Create & change (mutating)**
