@@ -1,6 +1,6 @@
 # @diagrams-so/mcp
 
-[![CI](https://github.com/redhold-yuvraj/diagrams-so-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/redhold-yuvraj/diagrams-so-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/RedHold/diagrams-mcp-app-core/actions/workflows/ci.yml/badge.svg)](https://github.com/RedHold/diagrams-mcp-app-core/actions/workflows/ci.yml)
 
 The **Diagrams.so MCP server** — generate, edit, and manage cloud architecture diagrams from any MCP client (Claude Desktop, Claude Code, Cursor). It's a thin stdio client over the public Diagrams.so API (`/api/v2`); every tool is one REST call.
 
@@ -10,8 +10,8 @@ Needs **Node ≥ 18** and a **Diagrams.so API key** (`dgz_live_…` or `dgz_test
 
 ```bash
 # 1. clone & build
-git clone https://github.com/redhold-yuvraj/diagrams-so-mcp.git
-cd diagrams-so-mcp
+git clone https://github.com/RedHold/diagrams-mcp-app-core.git
+cd diagrams-mcp-app-core
 npm install          # installs deps and builds dist/ (via the prepare hook)
 
 # 2. (optional) confirm the server launches and all 22 tools register — no API calls, no credits
