@@ -148,3 +148,4 @@ it as a downloadable artifact without publishing (handy for testing a bundle).
 - **stdout is the MCP channel** — the server logs only to stderr.
 - Errors come back as clean MCP tool errors carrying the API's `code`, HTTP status, and `request_id`.
 - The server never talks to internal services or the database — only the public `/api/v2`.
+- **Long-running tools stay alive past client timeouts.** `generate` / `edit` / `fix` / `relayout` / `enhance_prompt` / `clarify_prompt` emit a `notifications/progress` every 10s while running, so MCP clients that reset their request timeout on progress (`resetTimeoutOnProgress`) won't abort a slow generation at the SDK's 60s default. If your client doesn't reset on progress, raise its per-call timeout for these tools.

@@ -62,6 +62,30 @@ const READ = { readOnlyHint: true } as const;
 const WRITE = { readOnlyHint: false, destructiveHint: false } as const;
 const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true } as const;
 
+// The LLM-backed tools (generate/edit/fix/relayout/enhance/clarify) can run
+// longer than an MCP client's default 60s per-request timeout. A server can't
+// raise a client's timeout, but the MCP spec lets us keep a long call alive:
+// while the API request is in flight, emit a `notifications/progress` every 10s
+// against the request's progressToken. Clients that honor progress (reset their
+// timeout on it) then wait for the real result instead of aborting at 60s.
+// No-op when the client didn't send a progressToken — nothing to report against.
+async function withHeartbeat<T>(extra: any, message: string, fn: () => Promise<T>): Promise<T> {
+  const progressToken = extra?._meta?.progressToken;
+  if (progressToken === undefined || typeof extra?.sendNotification !== "function") return fn();
+  let progress = 0;
+  const timer = setInterval(() => {
+    progress += 1;
+    void extra
+      .sendNotification({ method: "notifications/progress", params: { progressToken, progress, message } })
+      .catch(() => {});
+  }, 10_000);
+  try {
+    return await fn();
+  } finally {
+    clearInterval(timer);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Generate / edit / fix / relayout  (billable, mutating)
 // ---------------------------------------------------------------------------
@@ -81,9 +105,10 @@ server.registerTool(
     },
     annotations: WRITE,
   },
-  async ({ prompt, cloud_provider, diagram_type, opinionated }) => {
+  async ({ prompt, cloud_provider, diagram_type, opinionated }, extra) => {
     try {
-      const d = await apiRequest("POST", "/diagrams", { body: { prompt, cloud_provider, diagram_type, opinionated } });
+      const d = await withHeartbeat(extra, "Generating diagram…", () =>
+        apiRequest("POST", "/diagrams", { body: { prompt, cloud_provider, diagram_type, opinionated } }));
       return ok(
         `Diagram created.\nid: ${d.id}\ntitle: ${d.title}` +
           scoreLine(d.score) +
@@ -111,11 +136,10 @@ server.registerTool(
     },
     annotations: WRITE,
   },
-  async ({ diagram_id, edit_prompt }) => {
+  async ({ diagram_id, edit_prompt }, extra) => {
     try {
-      const d = await apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/edit`, {
-        body: { edit_prompt },
-      });
+      const d = await withHeartbeat(extra, "Applying edit…", () =>
+        apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/edit`, { body: { edit_prompt } }));
       return ok(`Diagram edited.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + `\n\ndraw.io XML:\n${d.xml}`);
     } catch (e) {
       return fail(e);
@@ -138,11 +162,10 @@ server.registerTool(
     },
     annotations: WRITE,
   },
-  async ({ diagram_id, message, component, warning_type }) => {
+  async ({ diagram_id, message, component, warning_type }, extra) => {
     try {
-      const d = await apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/fix`, {
-        body: { message, component, warning_type },
-      });
+      const d = await withHeartbeat(extra, "Fixing warning…", () =>
+        apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/fix`, { body: { message, component, warning_type } }));
       return ok(`Warning fixed.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + `\n\ndraw.io XML:\n${d.xml}`);
     } catch (e) {
       return fail(e);
@@ -165,42 +188,44 @@ server.registerTool(
     },
     annotations: WRITE,
   },
-  async ({ diagram_id, confirm }) => {
+  async ({ diagram_id, confirm }, extra) => {
     try {
-      const id = encodeURIComponent(diagram_id);
-      const start = await apiRequest("POST", `/diagrams/${id}/relayout`, { query: { confirm } });
-      // Confirm gate: chargeable re-layout requested without confirm=true.
-      if (start?.status === "confirmation_required") {
-        return ok(`${start.message}\n\nRe-run relayout_diagram with confirm=true to proceed.`);
-      }
-      const jobId: string | undefined = start?.job_id;
-      if (!jobId) return ok(`Re-layout started but no job_id was returned: ${JSON.stringify(start)}`);
+      return await withHeartbeat(extra, "Re-laying out…", async () => {
+        const id = encodeURIComponent(diagram_id);
+        const start = await apiRequest("POST", `/diagrams/${id}/relayout`, { query: { confirm } });
+        // Confirm gate: chargeable re-layout requested without confirm=true.
+        if (start?.status === "confirmation_required") {
+          return ok(`${start.message}\n\nRe-run relayout_diagram with confirm=true to proceed.`);
+        }
+        const jobId: string | undefined = start?.job_id;
+        if (!jobId) return ok(`Re-layout started but no job_id was returned: ${JSON.stringify(start)}`);
 
-      // Poll until terminal (done | failed) or the wait budget elapses.
-      const deadline = Date.now() + 120_000;
-      let last: any = start;
-      while (Date.now() < deadline) {
-        await sleep(1500);
-        last = await apiRequest("GET", `/diagrams/${id}/relayout/${encodeURIComponent(jobId)}`);
-        if (last.status === "done") {
-          if (last.applied) {
-            return ok(
-              `Re-layout applied (v${last.version_number ?? "?"}).` +
-                scoreLine(last.score) +
-                warningsText(last.warnings) +
-                `\n\ndraw.io XML:\n${last.xml ?? ""}`,
-            );
+        // Poll until terminal (done | failed) or the wait budget elapses.
+        const deadline = Date.now() + 120_000;
+        let last: any = start;
+        while (Date.now() < deadline) {
+          await sleep(1500);
+          last = await apiRequest("GET", `/diagrams/${id}/relayout/${encodeURIComponent(jobId)}`);
+          if (last.status === "done") {
+            if (last.applied) {
+              return ok(
+                `Re-layout applied (v${last.version_number ?? "?"}).` +
+                  scoreLine(last.score) +
+                  warningsText(last.warnings) +
+                  `\n\ndraw.io XML:\n${last.xml ?? ""}`,
+              );
+            }
+            return ok(`Re-layout finished without changes${last.reason ? ` (${last.reason})` : ""}.`);
           }
-          return ok(`Re-layout finished without changes${last.reason ? ` (${last.reason})` : ""}.`);
+          if (last.status === "failed") {
+            return fail(new ApiError("RELAYOUT_FAILED", last.reason || "The re-layout job failed.", 0));
+          }
         }
-        if (last.status === "failed") {
-          return fail(new ApiError("RELAYOUT_FAILED", last.reason || "The re-layout job failed.", 0));
-        }
-      }
-      return ok(
-        `Re-layout is still running (job_id: ${jobId}, ${last.progress ?? 0}%). ` +
-          `Poll it with get_relayout_status(diagram_id, job_id).`,
-      );
+        return ok(
+          `Re-layout is still running (job_id: ${jobId}, ${last.progress ?? 0}%). ` +
+            `Poll it with get_relayout_status(diagram_id, job_id).`,
+        );
+      });
     } catch (e) {
       return fail(e);
     }
@@ -595,9 +620,10 @@ server.registerTool(
     },
     annotations: READ,
   },
-  async ({ prompt, cloud_provider }) => {
+  async ({ prompt, cloud_provider }, extra) => {
     try {
-      const r = await apiRequest("POST", "/prompts/enhance", { body: { prompt, cloud_provider } });
+      const r = await withHeartbeat(extra, "Enhancing prompt…", () =>
+        apiRequest("POST", "/prompts/enhance", { body: { prompt, cloud_provider } }));
       return ok(`Enhanced prompt:\n${r.enhanced_prompt}`);
     } catch (e) {
       return fail(e);
@@ -613,9 +639,10 @@ server.registerTool(
     inputSchema: { prompt: z.string().min(1).describe("Your prompt") },
     annotations: READ,
   },
-  async ({ prompt }) => {
+  async ({ prompt }, extra) => {
     try {
-      const r = await apiRequest("POST", "/prompts/clarify", { body: { prompt } });
+      const r = await withHeartbeat(extra, "Analyzing prompt…", () =>
+        apiRequest("POST", "/prompts/clarify", { body: { prompt } }));
       if (!r.questions?.length) return ok("Prompt is clear enough — go ahead and generate.");
       const qs = r.questions
         .map((q: any, i: number) => `  ${i + 1}. ${q.text}${q.options ? ` (${q.options.join(" / ")})` : ""}`)
