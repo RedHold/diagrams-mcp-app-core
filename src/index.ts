@@ -13,7 +13,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { apiRequest, ApiError, usageLine, scoreLine, sleep } from "./client.js";
+import { apiRequest, ApiError, usageLine, scoreLine, sleep, recordCharge, sessionCharges } from "./client.js";
 
 const SERVER_VERSION = "1.1.0";
 
@@ -107,8 +107,8 @@ server.registerTool(
   },
   async ({ prompt, cloud_provider, diagram_type, opinionated }, extra) => {
     try {
-      const d = await withHeartbeat(extra, "Generating diagram…", () =>
-        apiRequest("POST", "/diagrams", { body: { prompt, cloud_provider, diagram_type, opinionated } }));
+      const d = recordCharge("generate", await withHeartbeat(extra, "Generating diagram…", () =>
+        apiRequest("POST", "/diagrams", { body: { prompt, cloud_provider, diagram_type, opinionated } })));
       return ok(
         `Diagram created.\nid: ${d.id}\ntitle: ${d.title}` +
           scoreLine(d.score) +
@@ -138,8 +138,8 @@ server.registerTool(
   },
   async ({ diagram_id, edit_prompt }, extra) => {
     try {
-      const d = await withHeartbeat(extra, "Applying edit…", () =>
-        apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/edit`, { body: { edit_prompt } }));
+      const d = recordCharge("edit", await withHeartbeat(extra, "Applying edit…", () =>
+        apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/edit`, { body: { edit_prompt } })));
       return ok(`Diagram edited.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + `\n\ndraw.io XML:\n${d.xml}`);
     } catch (e) {
       return fail(e);
@@ -164,8 +164,8 @@ server.registerTool(
   },
   async ({ diagram_id, message, component, warning_type }, extra) => {
     try {
-      const d = await withHeartbeat(extra, "Fixing warning…", () =>
-        apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/fix`, { body: { message, component, warning_type } }));
+      const d = recordCharge("fix", await withHeartbeat(extra, "Fixing warning…", () =>
+        apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/fix`, { body: { message, component, warning_type } })));
       return ok(`Warning fixed.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + `\n\ndraw.io XML:\n${d.xml}`);
     } catch (e) {
       return fail(e);
@@ -666,6 +666,56 @@ server.registerTool(
     try {
       const u = await apiRequest("GET", "/usage");
       return ok(JSON.stringify(u, null, 2));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "get_usage_history",
+  {
+    title: "Credit consumption history",
+    description:
+      "List how much credit each past task (generate/edit/fix/relayout) charged — newest first, with the " +
+      "diagram it touched and the surface (api/sdk/mcp) that ran it. Use this to answer 'how much did each " +
+      "task cost?'. Also shows a running tally of tasks performed in THIS session. Free (read-only).",
+    inputSchema: {
+      limit: z.number().int().min(1).max(100).optional().describe("Max rows to return (default 20)."),
+      cursor: z.string().optional().describe("Pagination cursor from a previous call's next_cursor."),
+      action: z.enum(["generate", "edit", "fix", "relayout"]).optional().describe("Filter to one task type."),
+      source: z.enum(["api", "sdk-python", "sdk-ts", "mcp", "web"]).optional().describe("Filter to one surface."),
+      diagram_id: z.string().optional().describe("Only tasks that touched this diagram."),
+      since: z.string().optional().describe("ISO-8601 lower bound (inclusive)."),
+      until: z.string().optional().describe("ISO-8601 upper bound (exclusive)."),
+    },
+    annotations: READ,
+  },
+  async ({ limit, cursor, action, source, diagram_id, since, until }) => {
+    try {
+      const page = await apiRequest("GET", "/usage/history", {
+        query: { limit, cursor, action, source, diagram_id, from: since, to: until },
+      });
+      const lines = (page.items ?? []).map(
+        (i: any) =>
+          `• ${new Date(i.created_at).toISOString()}  ${i.action_type.padEnd(8)} ` +
+          `${String(i.credits_charged).padStart(4)} cr  [${i.source ?? "—"}]` +
+          (i.diagram_id ? `  diagram ${i.diagram_id}` : ""),
+      );
+      const s = page.summary ?? { total_credits_charged: 0, task_count: 0 };
+      let out =
+        `Credit consumption — ${s.task_count} task(s), ${s.total_credits_charged} credit(s) total` +
+        (action || source ? " (filtered)" : "") +
+        `:\n${lines.join("\n") || "  (no tasks yet)"}`;
+      if (page.has_more) out += `\n\nMore available — call again with cursor="${page.next_cursor}".`;
+      if (sessionCharges.length) {
+        const sess = sessionCharges
+          .map((c) => `  • ${c.action}: ${c.creditsCharged} cr${c.diagramId ? ` (${c.diagramId})` : ""}`)
+          .join("\n");
+        const sessTotal = sessionCharges.reduce((a, c) => a + (c.creditsCharged ?? 0), 0);
+        out += `\n\nThis session (live tally): ${sessTotal} credit(s) across ${sessionCharges.length} task(s):\n${sess}`;
+      }
+      return ok(out);
     } catch (e) {
       return fail(e);
     }

@@ -7,6 +7,10 @@
 
 const BASE = (process.env.DIAGRAMS_API_BASE || "http://localhost:8000/api/v2").replace(/\/+$/, "");
 const KEY = process.env.DIAGRAMS_API_KEY;
+// Identify this client so the API attributes charges to source="mcp" in the
+// credit-consumption history (X-Diagrams-Client wins; User-Agent is a fallback).
+const CLIENT_ID = "mcp/1.1.0";
+const USER_AGENT = "@diagrams-so/mcp/1.1.0";
 // Safety-net timeout so a hung/slow API surfaces a clean tool error instead of
 // hanging the MCP client forever. Generous by default (LLM generate/edit are
 // slow); override with DIAGRAMS_API_TIMEOUT_MS.
@@ -53,7 +57,11 @@ export async function apiRequest<T = any>(
     }
   }
 
-  const headers: Record<string, string> = { Authorization: `Bearer ${KEY}` };
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${KEY}`,
+    "User-Agent": USER_AGENT,
+    "X-Diagrams-Client": CLIENT_ID,
+  };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
 
   const controller = new AbortController();
@@ -127,6 +135,31 @@ export interface Usage {
 export function usageLine(usage?: Usage | null): string {
   if (!usage) return "";
   return `\nCredits: ${usage.credits_charged} charged · ${usage.credits_remaining} remaining (${usage.tier ?? "?"}).`;
+}
+
+/** In-process tally of what each billable task charged this MCP session, so the
+ * agent can answer "how much did each task cost?" instantly (get_usage_history
+ * gives the durable, cross-session record). */
+export interface SessionCharge {
+  action: string;
+  diagramId?: string;
+  creditsCharged?: number;
+  creditsRemaining?: number;
+}
+export const sessionCharges: SessionCharge[] = [];
+
+/** Record a billable task's charge from its response `usage` block. */
+export function recordCharge<T extends { id?: string; usage?: Usage | null }>(action: string, result: T): T {
+  const u = result?.usage;
+  if (u) {
+    sessionCharges.push({
+      action,
+      diagramId: result?.id,
+      creditsCharged: u.credits_charged,
+      creditsRemaining: u.credits_remaining,
+    });
+  }
+  return result;
 }
 
 /** The Well-Architected `score` object returned on generate/get/edit/fix. */
