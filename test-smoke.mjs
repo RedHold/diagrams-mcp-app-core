@@ -7,7 +7,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 
 const KEY = process.env.DIAGRAMS_API_KEY;
 if (!KEY) { console.error("set DIAGRAMS_API_KEY"); process.exit(1); }
-const BASE = process.env.DIAGRAMS_API_BASE || "http://localhost:8000/api/v2";
+const BASE = process.env.DIAGRAMS_API_BASE || "https://api.diagrams.so/api/v2";
 
 const transport = new StdioClientTransport({
   command: "node",
@@ -56,6 +56,7 @@ const idFrom = (r) => text(r).match(/(?:new )?id: ([0-9a-f-]{36})/i)?.[1];
 console.log("\n-- reads / discovery --");
 await call("whoami");
 await call("get_usage");
+await call("get_usage_history", { limit: 5 });
 await call("list_capabilities");
 await call("list_diagrams", { limit: 3 });
 await call("search_gallery", { q: "aws", limit: 3 });
@@ -92,6 +93,10 @@ if (!gen.isError) {
 } else {
   console.log("  (generate returned an error — provider/credits likely not configured locally; error path OK)");
 }
+
+// After the billable calls: the ledger should show mcp-attributed rows and the
+// in-process session tally should list what this run just charged.
+await call("get_usage_history", { limit: 5, source: "mcp" });
 
 console.log("\n-- error handling (bad id / bad input → clean tool error) --");
 await call("get_diagram", { diagram_id: "11111111-1111-1111-1111-111111111111" }, { expectError: true });

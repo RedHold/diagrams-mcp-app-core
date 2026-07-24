@@ -15,7 +15,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { apiRequest, ApiError, usageLine, scoreLine, sleep, recordCharge, sessionCharges } from "./client.js";
 
-const SERVER_VERSION = "1.1.0";
+const SERVER_VERSION = "1.2.0";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },

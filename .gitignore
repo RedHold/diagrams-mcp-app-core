@@ -1,3 +1,7 @@
 node_modules/
 dist/
 *.mcpb
+# local scratch: exported diagrams and working notes
+*.drawio
+ECOSYSTEM_SUMMARY.md
+MCP_GO_LIVE_STEPS.md

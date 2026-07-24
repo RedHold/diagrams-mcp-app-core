@@ -5,12 +5,12 @@
  * is the ONLY place that knows about HTTP, auth, or the API's error shape.
  */
 
-const BASE = (process.env.DIAGRAMS_API_BASE || "http://localhost:8000/api/v2").replace(/\/+$/, "");
+const BASE = (process.env.DIAGRAMS_API_BASE || "https://api.diagrams.so/api/v2").replace(/\/+$/, "");
 const KEY = process.env.DIAGRAMS_API_KEY;
 // Identify this client so the API attributes charges to source="mcp" in the
 // credit-consumption history (X-Diagrams-Client wins; User-Agent is a fallback).
-const CLIENT_ID = "mcp/1.1.0";
-const USER_AGENT = "@diagrams-so/mcp/1.1.0";
+const CLIENT_ID = "mcp/1.2.0";
+const USER_AGENT = "@diagrams-so/mcp/1.2.0";
 // Safety-net timeout so a hung/slow API surfaces a clean tool error instead of
 // hanging the MCP client forever. Generous by default (LLM generate/edit are
 // slow); override with DIAGRAMS_API_TIMEOUT_MS.
