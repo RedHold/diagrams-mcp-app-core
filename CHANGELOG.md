@@ -11,7 +11,7 @@
   (plus a matching User-Agent) so charges attribute to `source="mcp"` in the ledger.
 - **Production by default**: `DIAGRAMS_API_BASE` now defaults to
   `https://api.diagrams.so/api/v2`; set it explicitly only for a local/self-hosted API.
-- Added MIT `LICENSE`; smoke tests and docs updated for the 23-tool surface.
+- Added Apache-2.0 `LICENSE` + `NOTICE`; smoke tests and docs updated for the 23-tool surface.
 
 ## [1.1.0] — 2026-07
 

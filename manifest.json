@@ -62,7 +62,7 @@
     { "name": "list_capabilities", "description": "Valid diagram types, providers, and export formats." }
   ],
   "keywords": ["diagram", "architecture", "aws", "azure", "gcp", "drawio", "cloud", "well-architected"],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "compatibility": {
     "platforms": ["darwin", "win32", "linux"],
     "runtimes": { "node": ">=18.0.0" }
