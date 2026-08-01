@@ -2,10 +2,12 @@
   "manifest_version": "0.2",
   "name": "diagrams-so",
   "display_name": "Diagrams.so",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Generate, edit, and manage cloud architecture diagrams (draw.io / SVG) with AI.",
-  "long_description": "The Diagrams.so MCP server lets Claude generate cloud architecture diagrams from a prompt, review Well-Architected warnings, fix them, edit iteratively, search a public gallery, and export native .drawio / SVG — all through the Diagrams.so public API. Reads are free; generate/edit/fix cost credits.",
-  "author": { "name": "RedHold / Diagrams.so" },
+  "long_description": "The Diagrams.so MCP server lets Claude generate cloud architecture diagrams from a prompt, review Well-Architected warnings, fix them, edit iteratively, search a public gallery, and export native .drawio / SVG \u2014 all through the Diagrams.so public API. Reads are free; generate/edit/fix cost credits.",
+  "author": {
+    "name": "RedHold / Diagrams.so"
+  },
   "homepage": "https://diagrams.so",
   "documentation": "https://developers.diagrams.so",
   "server": {
@@ -13,7 +15,9 @@
     "entry_point": "dist/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/dist/index.js"],
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
       "env": {
         "DIAGRAMS_API_KEY": "${user_config.api_key}",
         "DIAGRAMS_API_BASE": "${user_config.api_base}"
@@ -37,34 +41,118 @@
     }
   },
   "tools": [
-    { "name": "generate_diagram", "description": "Create a diagram from a prompt (costs credits)." },
-    { "name": "edit_diagram", "description": "Apply a natural-language change (costs credits)." },
-    { "name": "fix_warning", "description": "Resolve one Well-Architected warning (costs credits)." },
-    { "name": "relayout_diagram", "description": "AI re-arrange the layout (async; first 2/diagram free, then confirm)." },
-    { "name": "import_diagram", "description": "Import existing draw.io XML as a new diagram." },
-    { "name": "update_diagram", "description": "Rename, change visibility, or replace a diagram's XML." },
-    { "name": "revert_diagram", "description": "Revert a diagram to an earlier version." },
-    { "name": "delete_diagram", "description": "Soft-delete a diagram (destructive)." },
-    { "name": "fork_template", "description": "Copy a public/library diagram into your account (private)." },
-    { "name": "get_diagram", "description": "Fetch a diagram's XML + score." },
-    { "name": "list_diagrams", "description": "List your diagrams (paginated)." },
-    { "name": "get_warnings", "description": "Well-Architected findings for a diagram." },
-    { "name": "export_diagram", "description": "Export a diagram as drawio or svg." },
-    { "name": "list_versions", "description": "List a diagram's version history." },
-    { "name": "get_version", "description": "Fetch a specific version's XML + score." },
-    { "name": "get_relayout_status", "description": "Poll an async re-layout job." },
-    { "name": "search_gallery", "description": "Search public community + curated library diagrams." },
-    { "name": "enhance_prompt", "description": "Turn a rough idea into a detailed prompt." },
-    { "name": "clarify_prompt", "description": "Get clarifying questions for a vague prompt." },
-    { "name": "get_usage", "description": "Plan, credits, and cost estimates." },
-    { "name": "get_usage_history", "description": "Itemized credit-consumption history per task, with filters (free)." },
-    { "name": "whoami", "description": "Account, plan, scopes, live/test mode." },
-    { "name": "list_capabilities", "description": "Valid diagram types, providers, and export formats." }
+    {
+      "name": "generate_diagram",
+      "description": "Create a diagram from a prompt (costs credits)."
+    },
+    {
+      "name": "edit_diagram",
+      "description": "Apply a natural-language change (costs credits)."
+    },
+    {
+      "name": "fix_warning",
+      "description": "Resolve one Well-Architected warning (costs credits)."
+    },
+    {
+      "name": "relayout_diagram",
+      "description": "AI re-arrange the layout (async; first 2/diagram free, then confirm)."
+    },
+    {
+      "name": "import_diagram",
+      "description": "Import existing draw.io XML as a new diagram."
+    },
+    {
+      "name": "update_diagram",
+      "description": "Rename, change visibility, or replace a diagram's XML."
+    },
+    {
+      "name": "revert_diagram",
+      "description": "Revert a diagram to an earlier version."
+    },
+    {
+      "name": "delete_diagram",
+      "description": "Soft-delete a diagram (destructive)."
+    },
+    {
+      "name": "fork_template",
+      "description": "Copy a public/library diagram into your account (private)."
+    },
+    {
+      "name": "get_diagram",
+      "description": "Fetch a diagram's XML + score."
+    },
+    {
+      "name": "list_diagrams",
+      "description": "List your diagrams (paginated)."
+    },
+    {
+      "name": "get_warnings",
+      "description": "Well-Architected findings for a diagram."
+    },
+    {
+      "name": "export_diagram",
+      "description": "Export a diagram as drawio or svg."
+    },
+    {
+      "name": "list_versions",
+      "description": "List a diagram's version history."
+    },
+    {
+      "name": "get_version",
+      "description": "Fetch a specific version's XML + score."
+    },
+    {
+      "name": "get_relayout_status",
+      "description": "Poll an async re-layout job."
+    },
+    {
+      "name": "search_gallery",
+      "description": "Search public community + curated library diagrams."
+    },
+    {
+      "name": "enhance_prompt",
+      "description": "Turn a rough idea into a detailed prompt."
+    },
+    {
+      "name": "clarify_prompt",
+      "description": "Get clarifying questions for a vague prompt."
+    },
+    {
+      "name": "get_usage",
+      "description": "Plan, credits, and cost estimates."
+    },
+    {
+      "name": "get_usage_history",
+      "description": "Itemized credit-consumption history per task, with filters (free)."
+    },
+    {
+      "name": "whoami",
+      "description": "Account, plan, scopes, live/test mode."
+    },
+    {
+      "name": "list_capabilities",
+      "description": "Valid diagram types, providers, and export formats."
+    }
   ],
-  "keywords": ["diagram", "architecture", "aws", "azure", "gcp", "drawio", "cloud", "well-architected"],
+  "keywords": [
+    "diagram",
+    "architecture",
+    "aws",
+    "azure",
+    "gcp",
+    "drawio",
+    "cloud",
+    "well-architected"
+  ],
   "license": "Apache-2.0",
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"],
-    "runtimes": { "node": ">=18.0.0" }
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
   }
 }
