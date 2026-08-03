@@ -14,23 +14,22 @@ git clone https://github.com/RedHold/diagrams-mcp-app-core.git
 cd diagrams-mcp-app-core
 npm install          # installs deps and builds dist/ (via the prepare hook)
 
-# 2. (optional) confirm the server launches and all 22 tools register — no API calls, no credits
+# 2. (optional) confirm the server launches and all 23 tools register — no API calls, no credits
 node scripts/ci-smoke.mjs
 
 # 3. add it to Claude Code (use the ABSOLUTE path printed by `pwd`)
 claude mcp add diagrams-so \
   --env DIAGRAMS_API_KEY=dgz_live_your_key \
-  --env DIAGRAMS_API_BASE=https://api.diagrams.so/api/v2 \
   -- node "$(pwd)/dist/index.js"
 ```
 
 Restart your client, then ask: *"Generate an AWS 3-tier web app diagram and show me the warnings."*
 
-> **Set `DIAGRAMS_API_BASE` explicitly** — it defaults to `http://localhost:8000/api/v2` (local dev). Use `https://api.diagrams.so/api/v2` for production.
+> The server talks to production (`https://api.diagrams.so/api/v2`) by default. Point it at a local/self-hosted API with `--env DIAGRAMS_API_BASE=http://localhost:8000/api/v2`.
 
 Using Claude Desktop or Cursor instead of the CLI? See [Add it to your MCP client](#add-it-to-your-mcp-client). Prefer a one-click, no-terminal install? See [One-click install (MCPB)](#one-click-install-mcpb).
 
-## Tools (22)
+## Tools (23)
 
 **Create & change (mutating)**
 
@@ -61,6 +60,7 @@ Using Claude Desktop or Cursor instead of the CLI? See [Add it to your MCP clien
 | `enhance_prompt` | Turn a rough idea into a detailed prompt |
 | `clarify_prompt` | Get clarifying questions for a vague prompt |
 | `get_usage` | Plan + credits + cost estimates |
+| `get_usage_history` | Itemized credit ledger per task (action, credits, diagram, surface) with filters + a live session tally |
 | `whoami` | Account, plan, scopes, live/test mode |
 | `list_capabilities` | Valid diagram types / providers / export formats |
 
@@ -79,7 +79,7 @@ npm run build    # compile to dist/
 | Var | Required | Default |
 |---|---|---|
 | `DIAGRAMS_API_KEY` | ✅ | — |
-| `DIAGRAMS_API_BASE` | ❌ | `http://localhost:8000/api/v2` (set to `https://api.diagrams.so/api/v2` in prod) |
+| `DIAGRAMS_API_BASE` | ❌ | `https://api.diagrams.so/api/v2` (production; override for local/self-hosted) |
 | `DIAGRAMS_API_TIMEOUT_MS` | ❌ | `180000` (per-request safety-net timeout) |
 
 ## Add it to your MCP client
@@ -90,7 +90,6 @@ Point the client at the built server and pass your key. Use the **absolute** pat
 ```bash
 claude mcp add diagrams-so \
   --env DIAGRAMS_API_KEY=dgz_live_your_key \
-  --env DIAGRAMS_API_BASE=http://localhost:8000/api/v2 \
   -- node /ABSOLUTE/PATH/TO/mcp/dist/index.js
 ```
 
@@ -102,8 +101,8 @@ claude mcp add diagrams-so \
       "command": "node",
       "args": ["/ABSOLUTE/PATH/TO/mcp/dist/index.js"],
       "env": {
-        "DIAGRAMS_API_KEY": "dgz_live_your_key",
-        "DIAGRAMS_API_BASE": "http://localhost:8000/api/v2"
+        "DIAGRAMS_API_KEY": "dgz_live_your_key"
+        // optional: "DIAGRAMS_API_BASE": "http://localhost:8000/api/v2" for a local API
       }
     }
   }
@@ -128,14 +127,14 @@ Runs the full flow (connect → list tools → whoami → generate → warnings 
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| **CI** (`ci.yml`) | every push / PR | `npm ci` + `npm run build` on Node 18/20/22, then a **free** smoke (`scripts/ci-smoke.mjs`) that launches the built server and asserts all 22 tools register. **No API calls, no credits.** |
+| **CI** (`ci.yml`) | every push / PR | `npm ci` + `npm run build` on Node 18/20/22, then a **free** smoke (`scripts/ci-smoke.mjs`) that launches the built server and asserts all 23 tools register. **No API calls, no credits.** |
 | **Live smoke** (`live-smoke.yml`) | nightly + manual | the full end-to-end flow (`test-smoke.mjs`) against the real API. **Spends credits** — runs only when the `DIAGRAMS_API_KEY` secret is set. |
 | **Release** (`release.yml`) | tag `vX.Y.Z` | build → `npm prune --omit=dev` → pack `diagrams-so.mcpb` → attach to a GitHub Release. Publishes to npm too if an `NPM_TOKEN` secret is set. |
 
 **Cut a release:**
 ```bash
 # bump "version" in package.json + manifest.json to match, commit, then:
-git tag v1.1.0 && git push origin v1.1.0
+git tag v1.2.0 && git push origin v1.2.0
 ```
 The tag must match `package.json`'s `version` (the workflow enforces this). The
 `.mcpb` bundle appears on the GitHub Release; manual `workflow_dispatch` produces

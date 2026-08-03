@@ -32,7 +32,7 @@ jobs:
       - name: Build (tsc)
         run: npm run build
 
-      - name: Smoke — all 22 tools register
+      - name: Smoke — all 23 tools register
         run: node scripts/ci-smoke.mjs
         env:
           DIAGRAMS_API_KEY: dgz_test_ci_dummy_no_calls

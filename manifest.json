@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "diagrams-so",
   "display_name": "Diagrams.so",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Generate, edit, and manage cloud architecture diagrams (draw.io / SVG) with AI.",
   "long_description": "The Diagrams.so MCP server lets Claude generate cloud architecture diagrams from a prompt, review Well-Architected warnings, fix them, edit iteratively, search a public gallery, and export native .drawio / SVG — all through the Diagrams.so public API. Reads are free; generate/edit/fix cost credits.",
   "author": { "name": "RedHold / Diagrams.so" },
@@ -57,11 +57,12 @@
     { "name": "enhance_prompt", "description": "Turn a rough idea into a detailed prompt." },
     { "name": "clarify_prompt", "description": "Get clarifying questions for a vague prompt." },
     { "name": "get_usage", "description": "Plan, credits, and cost estimates." },
+    { "name": "get_usage_history", "description": "Itemized credit-consumption history per task, with filters (free)." },
     { "name": "whoami", "description": "Account, plan, scopes, live/test mode." },
     { "name": "list_capabilities", "description": "Valid diagram types, providers, and export formats." }
   ],
   "keywords": ["diagram", "architecture", "aws", "azure", "gcp", "drawio", "cloud", "well-architected"],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "compatibility": {
     "platforms": ["darwin", "win32", "linux"],
     "runtimes": { "node": ">=18.0.0" }

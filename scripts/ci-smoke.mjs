@@ -13,7 +13,7 @@ const EXPECTED = [
   "fork_template", "get_diagram", "list_diagrams", "get_warnings",
   "export_diagram", "list_versions", "get_version", "get_relayout_status",
   "search_gallery", "enhance_prompt", "clarify_prompt", "get_usage",
-  "whoami", "list_capabilities",
+  "get_usage_history", "whoami", "list_capabilities",
 ];
 
 const fail = (msg) => { console.error(`✗ ${msg}`); process.exit(1); };
