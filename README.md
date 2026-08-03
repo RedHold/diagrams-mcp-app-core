@@ -80,7 +80,7 @@ npm run build    # compile to dist/
 |---|---|---|
 | `DIAGRAMS_API_KEY` | ✅ | — |
 | `DIAGRAMS_API_BASE` | ❌ | `https://api.diagrams.so/api/v2` (production; override for local/self-hosted) |
-| `DIAGRAMS_API_TIMEOUT_MS` | ❌ | `180000` (per-request safety-net timeout) |
+| `DIAGRAMS_API_TIMEOUT_MS` | ❌ | `450000` (per-request safety-net; sits above the API's full server-side timeout ladder) |
 
 ## Add it to your MCP client
 
