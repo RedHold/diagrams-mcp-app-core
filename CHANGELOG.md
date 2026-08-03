@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.3.0] — 2026-07
+
+Billing-safety release driven by the 2026-07-30 session audit. Tool surface
+unchanged (23 tools).
+
+- **Idempotency keys on billable calls** (`generate_diagram`, `edit_diagram`,
+  `fix_warning`): every call sends a fresh `Idempotency-Key`, and an ambiguous
+  failure (timeout / connection lost / 502 / 503 / 504 / 409-in-progress) is
+  retried up to 3 times with the SAME key. If the server finished the original
+  request, the retry replays the stored response — the diagram id is recovered
+  and nothing is double-billed. Definite rejections (401/402/404/422) never
+  retry. Previously a gateway 504 hid a successful, billed generation and any
+  retry created a second diagram and a second charge.
+- **Honest session tally**: billable calls that fail mid-flight are now recorded
+  as `UNKNOWN — may still have been charged` instead of silently omitted;
+  chargeable re-layouts (billed async, no usage block in the status payload) are
+  recorded the same way; `get_usage_history` labels the tally "this process
+  only — the ledger above is authoritative" and reports confirmed vs unknown
+  separately.
+- **Billable-tool errors now warn the agent** to check `get_usage_history` /
+  `list_diagrams` before retrying after an ambiguous failure.
+- **Re-layout billing text updated** for the 2026-08-01 product change: every
+  re-layout is billed by tokens (no free allowance) and requires `confirm=true`;
+  the unknown-charge tally keys off the server's own `chargeable` verdict.
+- **Default `DIAGRAMS_API_TIMEOUT_MS` raised 180000 → 450000** so the client
+  sits above the API's full server-side timeout ladder and never aborts work
+  the server would still deliver.
+
 ## [1.2.0] — 2026-07
 
 - **New tool `get_usage_history`** (23 tools total): itemized per-task credit

@@ -13,9 +13,20 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { apiRequest, ApiError, usageLine, scoreLine, sleep, recordCharge, sessionCharges } from "./client.js";
+import {
+  apiRequest,
+  apiRequestBillable,
+  ApiError,
+  isAmbiguous,
+  usageLine,
+  scoreLine,
+  sleep,
+  recordCharge,
+  recordUnknownCharge,
+  sessionCharges,
+} from "./client.js";
 
-const SERVER_VERSION = "1.2.0";
+const SERVER_VERSION = "1.3.0";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },
@@ -39,6 +50,23 @@ const fail = (e: unknown): ToolResult => {
         (e.requestId ? ` — request ${e.requestId}` : "")
       : `Error: ${(e as any)?.message ?? e}`;
   return { content: [{ type: "text", text: msg }], isError: true };
+};
+
+/** Failure handler for BILLABLE tools (audit M2/M3). If the outcome is
+ * ambiguous — even after the same-key retries — the server may have completed
+ * and charged the call. Record it as an unknown charge and steer the agent to
+ * the ledger instead of a blind (double-billing) retry. */
+const failBillable = (e: unknown, action: string): ToolResult => {
+  const base = fail(e);
+  if (isAmbiguous(e)) {
+    recordUnknownCharge(action, (e as ApiError)?.code);
+    base.content[0].text +=
+      `\n\nIMPORTANT: this ${action} may still have completed AND been charged server-side ` +
+      `(the response was lost, not necessarily the work). Before retrying, call ` +
+      `get_usage_history (and list_diagrams) to check whether the task already exists — ` +
+      `a blind retry can create a second diagram and a second charge.`;
+  }
+  return base;
 };
 
 const warningsText = (warnings?: { type: string; component?: string | null; message: string }[]): string => {
@@ -108,7 +136,7 @@ server.registerTool(
   async ({ prompt, cloud_provider, diagram_type, opinionated }, extra) => {
     try {
       const d = recordCharge("generate", await withHeartbeat(extra, "Generating diagram…", () =>
-        apiRequest("POST", "/diagrams", { body: { prompt, cloud_provider, diagram_type, opinionated } })));
+        apiRequestBillable("POST", "/diagrams", { body: { prompt, cloud_provider, diagram_type, opinionated } })));
       return ok(
         `Diagram created.\nid: ${d.id}\ntitle: ${d.title}` +
           scoreLine(d.score) +
@@ -118,7 +146,7 @@ server.registerTool(
           `\n\ndraw.io XML:\n${d.xml}`,
       );
     } catch (e) {
-      return fail(e);
+      return failBillable(e, "generate");
     }
   },
 );
@@ -139,10 +167,10 @@ server.registerTool(
   async ({ diagram_id, edit_prompt }, extra) => {
     try {
       const d = recordCharge("edit", await withHeartbeat(extra, "Applying edit…", () =>
-        apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/edit`, { body: { edit_prompt } })));
+        apiRequestBillable("POST", `/diagrams/${encodeURIComponent(diagram_id)}/edit`, { body: { edit_prompt } })));
       return ok(`Diagram edited.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + `\n\ndraw.io XML:\n${d.xml}`);
     } catch (e) {
-      return fail(e);
+      return failBillable(e, "edit");
     }
   },
 );
@@ -165,10 +193,10 @@ server.registerTool(
   async ({ diagram_id, message, component, warning_type }, extra) => {
     try {
       const d = recordCharge("fix", await withHeartbeat(extra, "Fixing warning…", () =>
-        apiRequest("POST", `/diagrams/${encodeURIComponent(diagram_id)}/fix`, { body: { message, component, warning_type } })));
+        apiRequestBillable("POST", `/diagrams/${encodeURIComponent(diagram_id)}/fix`, { body: { message, component, warning_type } })));
       return ok(`Warning fixed.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + `\n\ndraw.io XML:\n${d.xml}`);
     } catch (e) {
-      return fail(e);
+      return failBillable(e, "fix");
     }
   },
 );
@@ -179,12 +207,12 @@ server.registerTool(
     title: "Re-arrange layout with AI",
     description:
       "Automatically re-arrange a diagram's layout for readability (async). Starts the job and waits for it " +
-      "to finish, returning the re-laid XML + fresh warnings/score. The first 2 re-layouts per diagram are free; " +
-      "after that it costs credits and you must pass confirm=true. If the job is still running when the wait " +
-      "elapses, returns a job_id you can poll with get_relayout_status.",
+      "to finish, returning the re-laid XML + fresh warnings/score. Every re-layout costs credits based on " +
+      "the tokens it uses (like edit/fix) and requires confirm=true. If the job is still running when the " +
+      "wait elapses, returns a job_id you can poll with get_relayout_status.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
-      confirm: z.boolean().optional().describe("Opt into the charge for a chargeable (post-free) re-layout."),
+      confirm: z.boolean().optional().describe("Consent to the token-based charge (required to start)."),
     },
     annotations: WRITE,
   },
@@ -192,7 +220,10 @@ server.registerTool(
     try {
       return await withHeartbeat(extra, "Re-laying out…", async () => {
         const id = encodeURIComponent(diagram_id);
-        const start = await apiRequest("POST", `/diagrams/${id}/relayout`, { query: { confirm } });
+        // Billable wrapper (audit M2/M3): the server dedupes by pending job per
+        // diagram, so an ambiguous-failure retry of the START call is safe — it
+        // returns the already-running job instead of spawning a second one.
+        const start = await apiRequestBillable("POST", `/diagrams/${id}/relayout`, { query: { confirm } });
         // Confirm gate: chargeable re-layout requested without confirm=true.
         if (start?.status === "confirmation_required") {
           return ok(`${start.message}\n\nRe-run relayout_diagram with confirm=true to proceed.`);
@@ -208,6 +239,18 @@ server.registerTool(
           last = await apiRequest("GET", `/diagrams/${id}/relayout/${encodeURIComponent(jobId)}`);
           if (last.status === "done") {
             if (last.applied) {
+              // Audit M3: chargeable re-layouts bill asynchronously and the status
+              // payload carries no usage block, so the exact charge is only in the
+              // ledger — record it as unknown instead of silently omitting it.
+              // `chargeable` comes from the START response (the server's verdict) —
+              // as of the 2026-08-01 product change every re-layout is chargeable,
+              // but keying off the server keeps this correct either way.
+              if (start?.chargeable) {
+                recordUnknownCharge(
+                  "relayout",
+                  "chargeable re-layout applied; exact credits are in get_usage_history",
+                );
+              }
               return ok(
                 `Re-layout applied (v${last.version_number ?? "?"}).` +
                   scoreLine(last.score) +
@@ -221,13 +264,21 @@ server.registerTool(
             return fail(new ApiError("RELAYOUT_FAILED", last.reason || "The re-layout job failed.", 0));
           }
         }
+        // Wait budget elapsed: a chargeable job may still complete (and bill)
+        // after we stop watching — record the unknown outcome now.
+        if (start?.chargeable) {
+          recordUnknownCharge(
+            "relayout",
+            "chargeable re-layout still running when the wait elapsed; check get_usage_history",
+          );
+        }
         return ok(
           `Re-layout is still running (job_id: ${jobId}, ${last.progress ?? 0}%). ` +
             `Poll it with get_relayout_status(diagram_id, job_id).`,
         );
       });
     } catch (e) {
-      return fail(e);
+      return failBillable(e, "relayout");
     }
   },
 );
@@ -709,11 +760,25 @@ server.registerTool(
         `:\n${lines.join("\n") || "  (no tasks yet)"}`;
       if (page.has_more) out += `\n\nMore available — call again with cursor="${page.next_cursor}".`;
       if (sessionCharges.length) {
+        // Audit M3: label the two scopes honestly. The ledger above is the
+        // authoritative record (server-side, filter-scoped); the tally below is
+        // only what THIS process saw — confirmed responses plus calls whose
+        // outcome was lost (which may still have been charged).
+        const confirmed = sessionCharges.filter((c) => c.status === "confirmed");
+        const unknown = sessionCharges.filter((c) => c.status === "unknown");
         const sess = sessionCharges
-          .map((c) => `  • ${c.action}: ${c.creditsCharged} cr${c.diagramId ? ` (${c.diagramId})` : ""}`)
+          .map((c) =>
+            c.status === "confirmed"
+              ? `  • ${c.action}: ${c.creditsCharged} cr${c.diagramId ? ` (${c.diagramId})` : ""}`
+              : `  • ${c.action}: UNKNOWN — call failed mid-flight (${c.note ?? "no response"}); may still have been charged`,
+          )
           .join("\n");
-        const sessTotal = sessionCharges.reduce((a, c) => a + (c.creditsCharged ?? 0), 0);
-        out += `\n\nThis session (live tally): ${sessTotal} credit(s) across ${sessionCharges.length} task(s):\n${sess}`;
+        const sessTotal = confirmed.reduce((a, c) => a + (c.creditsCharged ?? 0), 0);
+        out +=
+          `\n\nThis session (this process only — the ledger above is authoritative): ` +
+          `${sessTotal} credit(s) confirmed across ${confirmed.length} task(s)` +
+          (unknown.length ? ` + ${unknown.length} call(s) with unknown outcome` : "") +
+          `:\n${sess}`;
       }
       return ok(out);
     } catch (e) {
