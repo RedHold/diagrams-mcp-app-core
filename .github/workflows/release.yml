@@ -48,6 +48,15 @@ jobs:
           fi
           echo "tag matches package.json ($PKG)"
 
+      # Publish BEFORE pruning dev deps: npm runs the `prepare` script (tsc) on
+      # publish even under --ignore-scripts, so typescript/@types/node must
+      # still be installed here. The rebuild doubles as a final compile check.
+      - name: Publish to npm (only if NPM_TOKEN is set)
+        if: startsWith(github.ref, 'refs/tags/v') && env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
       - name: Slim node_modules to production deps
         run: npm prune --omit=dev
 
@@ -68,11 +77,3 @@ jobs:
           gh release create "$GITHUB_REF_NAME" diagrams-so.mcpb \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
-
-      - name: Publish to npm (only if NPM_TOKEN is set)
-        if: startsWith(github.ref, 'refs/tags/v') && env.NPM_TOKEN != ''
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        # dist is already built; --ignore-scripts skips the prepare rebuild that
-        # would otherwise fail after dev deps (typescript) were pruned above.
-        run: npm publish --access public --ignore-scripts
