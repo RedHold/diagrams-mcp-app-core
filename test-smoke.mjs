@@ -42,7 +42,13 @@ const call = async (name, args = {}, { expectError = false } = {}) => {
     } catch (e) {
       r = { isError: true, content: [{ type: "text", text: `threw: ${e?.message || e}` }] };
     }
-    if (r.isError && /RATE_LIMITED/.test(text(r))) { await sleep(1600); continue; }
+    if (r.isError && /RATE_LIMITED/.test(text(r))) {
+      // Honor the server's retry_after (it can exceed our old fixed 1.6s —
+      // sleeping less just burns attempts inside the still-closed window).
+      const ra = Number(text(r).match(/"retry_after"\s*:\s*(\d+)/)?.[1]) || 2;
+      await sleep((ra + 0.5) * 1000);
+      continue;
+    }
     break;
   }
   const short = text(r).replace(/\n/g, " ").slice(0, 100);
