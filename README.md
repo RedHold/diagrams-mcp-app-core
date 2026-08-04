@@ -75,6 +75,21 @@ npm install      # install deps
 npm run build    # compile to dist/
 ```
 
+### Commands
+
+Installing the package puts `diagrams-so` on your PATH. The longer
+`diagrams-so-mcp` name still works, and `npx @diagrams-so/mcp <command>` works
+without installing anything.
+
+```bash
+npm i -g @diagrams-so/mcp
+
+diagrams-so login          # connect this machine (a browser opens, press Approve)
+diagrams-so whoami         # which account is this machine connected as
+diagrams-so logout         # remove the local credential
+diagrams-so install        # print client config to paste
+```
+
 ### Environment
 | Var | Required | Default |
 |---|---|---|

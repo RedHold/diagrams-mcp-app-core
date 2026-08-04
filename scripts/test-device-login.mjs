@@ -21,7 +21,7 @@
 // Run: node scripts/test-device-login.mjs   (after npm run build)
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, statSync, existsSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, statSync, existsSync, writeFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -276,6 +276,36 @@ await withMcp(envFor(homeA, { DIAGRAMS_API_BASE: base }), async (call) => {
 // ---------------------------------------------------------------------------
 // 12/13 — corrupt cache + base_url mismatch → treated as absent
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// bin aliases + invocation-aware hint
+// ---------------------------------------------------------------------------
+console.log("\n-- bin aliases --");
+{
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert(pkg.bin["diagrams-so"] === "dist/index.js", "package.json exposes the short `diagrams-so` command");
+  assert(pkg.bin["diagrams-so-mcp"] === "dist/index.js", "the original `diagrams-so-mcp` command still exists");
+
+  // Invoked as a bare script -> suggest the zero-install npx form.
+  const viaNode = await runCli(["whoami"], envFor(freshHome(), { DIAGRAMS_API_BASE: base }));
+  assert(viaNode.all.includes("npx @diagrams-so/mcp login"), "hint falls back to npx when not installed");
+
+  // Invoked through a bin name -> suggest the short command.
+  const binDir = mkdtempSync(join(tmpdir(), "bin-"));
+  const link = join(binDir, "diagrams-so");
+  symlinkSync(new URL("../dist/index.js", import.meta.url).pathname, link);
+  const viaBin = await new Promise((res) => {
+    const p = spawn(process.execPath, [link, "whoami"], {
+      env: { ...envFor(freshHome(), { DIAGRAMS_API_BASE: base }) },
+    });
+    let all = "";
+    p.stdout.on("data", (d) => (all += d));
+    p.stderr.on("data", (d) => (all += d));
+    p.on("close", () => res({ all }));
+  });
+  assert(viaBin.all.includes("diagrams-so login"), "hint uses the short command when installed");
+  assert(!viaBin.all.includes("npx @diagrams-so/mcp login"), "…and does not mention npx in that case");
+}
+
 console.log("\n-- corrupt / mismatched cache --");
 const NOT_CONNECTED = "Not connected — run `npx @diagrams-so/mcp login` in a terminal (or set DIAGRAMS_API_KEY).";
 {

@@ -31,6 +31,7 @@ import {
   writeCredentials,
   credentialRecord,
   postDeviceJson,
+  CLI_NAME,
 } from "./client.js";
 
 // ---------------------------------------------------------------------------
@@ -324,7 +325,7 @@ async function cmdWhoami(args: string[]): Promise<number> {
     console.error(`Credential source: ${source}`);
     // Same wording the tools use, so every surface says the same thing (F4).
     if (msg.includes("401")) {
-      console.error("Session credential expired or revoked — run `npx @diagrams-so/mcp login` again.");
+      console.error(`Session credential expired or revoked — run \`${CLI_NAME} login\` again.`);
     } else if (msg.includes("402")) {
       console.error(OUT_OF_CREDITS_MSG_FALLBACK);
     } else {

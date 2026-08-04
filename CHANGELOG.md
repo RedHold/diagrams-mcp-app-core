@@ -19,6 +19,10 @@ unchanged (23 tools).
   Only `https:` (or loopback `http:`) verification URLs are auto-opened;
   `DIAGRAMS_BROWSER` targets a specific browser (e.g. `Google Chrome`) and
   `DIAGRAMS_NO_BROWSER` disables auto-open entirely.
+- **Shorter command**: installing the package now also exposes `diagrams-so`, so
+  `npm i -g @diagrams-so/mcp` then `diagrams-so login` works. The original
+  `diagrams-so-mcp` name is unchanged, and the not-connected hint adapts to how
+  the CLI was invoked.
 - **In-tool connect (no terminal needed)**: a tool call with no credential now
   starts a device grant itself and returns a clickable link plus the code to
   match; the server polls in the background and caches the key the moment you

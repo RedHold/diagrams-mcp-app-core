@@ -84,8 +84,21 @@ export function resolveCredential(): { key: string; source: "env" | "login" } | 
   return null;
 }
 
+/** How to tell the user to run the CLI. When the package is installed (globally
+ * or otherwise) argv[1] is one of our bin names, so we can suggest the short
+ * command; otherwise fall back to the zero-install npx form. */
+export const CLI_NAME = (() => {
+  try {
+    const b = (process.argv[1] || "").split(/[\\/]/).pop() || "";
+    if (b === "diagrams-so" || b === "diagrams-so-mcp") return b;
+  } catch {
+    /* fall through */
+  }
+  return "npx @diagrams-so/mcp";
+})();
+
 export const NOT_CONNECTED_MSG =
-  "Not connected — run `npx @diagrams-so/mcp login` in a terminal (or set DIAGRAMS_API_KEY).";
+  `Not connected — run \`${CLI_NAME} login\` in a terminal (or set DIAGRAMS_API_KEY).`;
 
 // ---------------------------------------------------------------------------
 // Credential cache WRITE (shared by `login` and in-tool connect, so the on-disk
