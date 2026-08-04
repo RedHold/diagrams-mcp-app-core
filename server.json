@@ -1,9 +1,10 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.RedHold/diagrams-so-mcp",
-  "description": "Generate, edit, and manage cloud architecture diagrams (draw.io / SVG) with AI.",
-  "version": "1.4.0",
-  "websiteUrl": "https://diagrams.so",
+  "title": "Diagrams.so",
+  "description": "Generate and edit AWS, Azure, GCP and Kubernetes architecture diagrams as editable draw.io files.",
+  "version": "1.4.1",
+  "websiteUrl": "https://diagrams.so/developers",
   "repository": {
     "url": "https://github.com/RedHold/diagrams-mcp-app-core",
     "source": "github"
@@ -13,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@diagrams-so/mcp",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

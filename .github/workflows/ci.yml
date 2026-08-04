@@ -30,6 +30,9 @@ jobs:
       - name: Build (tsc)
         run: npm run build
 
+      - name: Version is consistent across package/manifest/server.json and src
+        run: node scripts/check-version-sync.mjs
+
       - name: Smoke — server launches & all 23 tools register (no API calls)
         run: node scripts/ci-smoke.mjs
         env:
