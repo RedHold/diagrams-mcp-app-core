@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "diagrams-so",
   "display_name": "Diagrams.so",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Generate, edit, and manage cloud architecture diagrams (draw.io / SVG) with AI.",
   "long_description": "The Diagrams.so MCP server lets Claude generate cloud architecture diagrams from a prompt, review Well-Architected warnings, fix them, edit iteratively, search a public gallery, and export native .drawio / SVG \u2014 all through the Diagrams.so public API. Reads are free; generate/edit/fix cost credits.",
   "author": {
@@ -28,9 +28,9 @@
     "api_key": {
       "type": "string",
       "title": "Diagrams.so API Key",
-      "description": "Your dgz_live_ or dgz_test_ key from diagrams.so settings.",
+      "description": "Optional. Leave blank and connect with one click on first use (or run `npx @diagrams-so/mcp login`). Only needed for CI/headless setups.",
       "sensitive": true,
-      "required": true
+      "required": false
     },
     "api_base": {
       "type": "string",

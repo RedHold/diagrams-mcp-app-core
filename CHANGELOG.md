@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.4.0] — 2026-08
+
+Zero-friction auth release: the bin now doubles as a CLI. Tool surface
+unchanged (23 tools).
+
+- **New CLI subcommands** on the same bin (`npx @diagrams-so/mcp <cmd>`):
+  `login`, `logout`, `whoami`, `install`. No args (or anything else) still
+  starts the stdio MCP server exactly as before.
+- **`login [--test] [--base-url <url>]`**: OAuth 2.0 Device Authorization Grant
+  (RFC 8628) against `/oauth/device/code` + `/oauth/device/token` — prints the
+  user code, auto-opens the browser (best-effort, cross-platform), polls with
+  `slow_down` backoff, and writes the minted key atomically (tmp + rename) to
+  `~/.diagrams-so/credentials.json` (dir 0700, file 0600). If the cache can't
+  be written the key is printed once with manual `DIAGRAMS_API_KEY` steps.
+  `--test` mints a test-mode key (and warns that test keys charge the same
+  credits as live).
+  Only `https:` (or loopback `http:`) verification URLs are auto-opened;
+  `DIAGRAMS_BROWSER` targets a specific browser (e.g. `Google Chrome`) and
+  `DIAGRAMS_NO_BROWSER` disables auto-open entirely.
+- **In-tool connect (no terminal needed)**: a tool call with no credential now
+  starts a device grant itself and returns a clickable link plus the code to
+  match; the server polls in the background and caches the key the moment you
+  approve, so the next tool call just works. This makes Claude Desktop usable
+  without ever opening a terminal. Disable with `DIAGRAMS_NO_AUTO_LOGIN=1`.
+- **MCPB bundle**: `api_key` is no longer required at install — install, then
+  connect on first use.
+- **Credential resolution** (server + CLI): `DIAGRAMS_API_KEY` env > login
+  cache > none. The cache is honored only when well-formed (version 1, has
+  `api_key`) AND minted against the configured base URL; any read/parse
+  problem is treated as absent — never a crash.
+- **Actionable auth/billing errors**: no credential → "Not connected — run
+  `npx @diagrams-so/mcp login` in a terminal (or set DIAGRAMS_API_KEY)."; 401 →
+  "Session credential expired or revoked — run `npx @diagrams-so/mcp login`
+  again."; 402 → "Out of credits — free credits are one-time. Top up ($5 for
+  25) or upgrade: <upgrade_url>"; billable calls now retry 429 with the same
+  Idempotency-Key ("Rate limited — retrying shortly.").
+- **`install`** prints ready-to-paste config for claude-code / claude-desktop /
+  cursor (all three when no client is named) — after `login`, no API key env
+  var is needed.
+- New deterministic stub-API test: `npm run test:device-login`.
+
 ## [1.3.0] — 2026-07
 
 Billing-safety release driven by the 2026-07-30 session audit. Tool surface
