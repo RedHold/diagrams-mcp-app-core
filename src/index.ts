@@ -29,7 +29,7 @@ import {
   sessionCharges,
 } from "./client.js";
 
-const SERVER_VERSION = "1.4.0";
+const SERVER_VERSION = "1.4.1";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },

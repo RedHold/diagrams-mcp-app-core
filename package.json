@@ -1,8 +1,34 @@
 {
   "name": "@diagrams-so/mcp",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "mcpName": "io.github.RedHold/diagrams-so-mcp",
   "description": "MCP server for Diagrams.so \u2014 generate, edit, and manage architecture diagrams from any MCP client (Claude, Cursor).",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "diagram",
+    "diagrams",
+    "architecture",
+    "drawio",
+    "draw.io",
+    "aws",
+    "azure",
+    "gcp",
+    "kubernetes",
+    "terraform",
+    "ai",
+    "claude",
+    "cursor"
+  ],
+  "homepage": "https://diagrams.so/developers",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RedHold/diagrams-mcp-app-core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RedHold/diagrams-mcp-app-core/issues"
+  },
   "type": "module",
   "license": "Apache-2.0",
   "bin": {

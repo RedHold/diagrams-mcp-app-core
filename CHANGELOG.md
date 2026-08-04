@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.4.1] — 2026-08
+
+Discovery and listings release. No tool or API changes (still 23 tools);
+nothing here alters runtime behaviour for existing users.
+
+- **Published to the official MCP registry.** `mcp-publisher publish` now
+  runs from the release workflow using GitHub Actions OIDC, so the
+  `io.github.RedHold/diagrams-so-mcp` entry updates itself on every tag
+  with no PAT and no interactive browser login.
+- **npm discovery metadata**: added `keywords`, `homepage`, `repository`
+  and `bugs`. Every directory that ingests from npm reads these, and
+  1.4.0 shipped without them.
+- **README** rewritten around `login` instead of copying an API key, and
+  a new section covering where you actually type the prompt to generate
+  a diagram from Claude, Cursor or Claude Desktop.
+- **`server.json`**: added `title`, sharpened `description` to name the
+  cloud providers people search for, and pointed `websiteUrl` at
+  `/developers`.
+- **Fixed a version drift bug.** `SERVER_VERSION`, `CLIENT_ID` and
+  `USER_AGENT` were hardcoded and stale, so the server announced 1.4.0 at
+  MCP handshake while `package.json` claimed otherwise. Added
+  `scripts/check-version-sync.mjs`, which runs in CI and release and
+  fails the build when any of the seven places carrying the version
+  disagree.
+- **Fixed a dead documentation link** in `manifest.json`, which ships
+  inside the `.mcpb` bundle: `developers.diagrams.so` does not resolve.
+  Now `https://diagrams.so/developers`.
+
 ## [1.4.0] — 2026-08
 
 Zero-friction auth release: the bin now doubles as a CLI. Tool surface
