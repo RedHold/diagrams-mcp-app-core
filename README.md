@@ -39,6 +39,46 @@ isn't connected yet, the first tool call replies with a link. Open it, press **A
 again. Nothing to install or type.
 </details>
 
+## Generating a diagram from Claude
+
+`login` only connects the machine. It never generates anything itself, so there is no
+`generate` command to type in a terminal. You write the prompt **in your assistant's normal
+chat box** and it calls the tools for you.
+
+| Client | Where you type the prompt |
+|---|---|
+| Claude Code | the terminal chat, same place you ask anything else |
+| Claude Desktop | the normal message box |
+| Cursor | the chat or composer panel |
+
+**MCP servers load at startup, so restart your client after adding it.** Then run `/mcp` and
+confirm `diagrams-so` shows 23 tools.
+
+Now just ask, in plain English:
+
+> Generate an AWS three-tier web app with an ALB, EC2 Auto Scaling and RDS Multi-AZ.
+> Show me the design warnings, then export it as draw.io.
+
+Behind that one sentence the assistant calls `generate_diagram`, then `get_warnings`, then
+`export_diagram`. You never name a tool or write JSON.
+
+More things worth asking, once you have a diagram:
+
+> The warnings mention no encryption in transit. Fix that one and show me the new score.
+
+> Add a CloudFront distribution in front of the ALB.
+
+> Re-export it as SVG so I can drop it in the README.
+
+Each reply carries the credit cost and your remaining balance. Generating, editing, fixing and
+re-laying-out spend credits; reading, warnings and **every export** are free.
+
+The `.drawio` file the assistant saves opens at [app.diagrams.net](https://app.diagrams.net) or
+in the desktop app, fully editable — it is real draw.io XML, not a picture.
+
+**Prefer not to use an assistant at all?** [diagrams.so/create](https://diagrams.so/create) has
+the same thing as a web page: type the prompt in the box. No install, no `login`, no MCP.
+
 ## Tools (23)
 
 **Create & change (mutating)**
