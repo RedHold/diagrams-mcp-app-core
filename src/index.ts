@@ -6,8 +6,11 @@
  * Desktop/Code, Cursor) can generate, edit, and manage architecture diagrams.
  * Thin client — every tool calls the REST API; nothing internal is touched.
  *
- * Env: DIAGRAMS_API_KEY (required), DIAGRAMS_API_BASE (optional),
+ * Env: DIAGRAMS_API_KEY (optional after `login`), DIAGRAMS_API_BASE (optional),
  *      DIAGRAMS_API_TIMEOUT_MS (optional).
+ *
+ * The same bin doubles as a CLI: `login` / `logout` / `whoami` / `install`
+ * (see cli.ts). Anything else — including no args — serves MCP over stdio.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -26,7 +29,7 @@ import {
   sessionCharges,
 } from "./client.js";
 
-const SERVER_VERSION = "1.3.0";
+const SERVER_VERSION = "1.4.0";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },
@@ -837,7 +840,19 @@ server.registerTool(
 
 // ---------------------------------------------------------------------------
 
+const CLI_COMMANDS = new Set(["login", "logout", "whoami", "install"]);
+
 async function main() {
+  // CLI subcommand router: `login` / `logout` / `whoami` / `install` run as a
+  // terminal CLI and exit; anything else (including no args) serves MCP over
+  // stdio exactly as before.
+  const argv = process.argv.slice(2);
+  if (argv[0] && CLI_COMMANDS.has(argv[0])) {
+    const { runCli } = await import("./cli.js");
+    process.exitCode = await runCli(argv[0], argv.slice(1));
+    return;
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stdout is the MCP channel — logs must go to stderr.

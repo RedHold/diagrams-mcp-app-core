@@ -75,12 +75,30 @@ npm install      # install deps
 npm run build    # compile to dist/
 ```
 
+### Commands
+
+Installing the package puts `diagrams-so` on your PATH. The longer
+`diagrams-so-mcp` name still works, and `npx @diagrams-so/mcp <command>` works
+without installing anything.
+
+```bash
+npm i -g @diagrams-so/mcp
+
+diagrams-so login          # connect this machine (a browser opens, press Approve)
+diagrams-so whoami         # which account is this machine connected as
+diagrams-so logout         # remove the local credential
+diagrams-so install        # print client config to paste
+```
+
 ### Environment
 | Var | Required | Default |
 |---|---|---|
 | `DIAGRAMS_API_KEY` | ✅ | — |
 | `DIAGRAMS_API_BASE` | ❌ | `https://api.diagrams.so/api/v2` (production; override for local/self-hosted) |
 | `DIAGRAMS_API_TIMEOUT_MS` | ❌ | `450000` (per-request safety-net; sits above the API's full server-side timeout ladder) |
+| `DIAGRAMS_BROWSER` | ❌ | — (`login` opens your default browser; set e.g. `Google Chrome` when your Diagrams.so session lives in a non-default browser) |
+| `DIAGRAMS_NO_BROWSER` | ❌ | — (set to any value to stop `login` opening a browser; the URL is always printed) |
+| `DIAGRAMS_NO_AUTO_LOGIN` | ❌ | — (set to any value to disable in-tool connect; unauthenticated tools then just say to run `login`) |
 
 ## Add it to your MCP client
 
