@@ -1,5 +1,5 @@
 /**
- * CLI subcommands for the @diagrams-so/mcp bin (v1.4.1).
+ * CLI subcommands for the @diagrams-so/mcp bin (v1.4.2).
  *
  *   login  [--test] [--base-url <url>]  — OAuth 2.0 Device Authorization Grant
  *                                         (RFC 8628); caches the minted API key
