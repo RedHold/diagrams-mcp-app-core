@@ -18,6 +18,7 @@ import { spawn } from "node:child_process";
 import { chmodSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
+import { createInterface } from "node:readline";
 import { join } from "node:path";
 import {
   BASE,
@@ -128,8 +129,40 @@ async function accountLine(base: string, key: string, fallbackLivemode?: boolean
 }
 
 // ---------------------------------------------------------------------------
-// login — RFC 8628 device flow
+// login — RFC 8628 device flow (code delivered by email, never in a URL)
 // ---------------------------------------------------------------------------
+
+function promptEmail(): Promise<string> {
+  // Interactive command; if stdin isn't a TTY, allow DIAGRAMS_LOGIN_EMAIL so
+  // automation can still supply the address.
+  if (!process.stdin.isTTY) return Promise.resolve((process.env.DIAGRAMS_LOGIN_EMAIL || "").trim());
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question("Email to receive your sign-in code: ", (a) => {
+      rl.close();
+      resolve((a || "").trim());
+    });
+  });
+}
+
+async function confirmKey(base: string, apiKey: string): Promise<void> {
+  // Best-effort: once the new key is saved, tell the server so it can retire the
+  // previous same-device key. A failure just leaves the old key valid — never a lockout.
+  try {
+    await fetch(`${base}/oauth/device/confirm`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "User-Agent": USER_AGENT,
+        "X-Diagrams-Client": CLIENT_ID,
+      },
+      body: "{}",
+    });
+  } catch {
+    /* ignore — old key simply lives on */
+  }
+}
 
 async function cmdLogin(args: string[]): Promise<number> {
   let livemode = true;
@@ -150,14 +183,21 @@ async function cmdLogin(args: string[]): Promise<number> {
     }
   }
 
+  const email = await promptEmail();
+  if (!email || !email.includes("@")) {
+    console.error("A valid email is required to receive your sign-in code.");
+    return 1;
+  }
+
   let dc: any;
   try {
     const r = await postDeviceJson(`${base}/oauth/device/code`, {
       client_id: "mcp",
       livemode,
       device_name: hostname(),
+      email,
     });
-    if (r.status !== 200 || !r.json?.device_code || !r.json?.user_code) {
+    if (r.status !== 200 || !r.json?.device_code) {
       console.error(`Could not start login (HTTP ${r.status}): ${JSON.stringify(r.json)}`);
       return 1;
     }
@@ -167,21 +207,19 @@ async function cmdLogin(args: string[]): Promise<number> {
     return 1;
   }
 
-  const code = String(dc.user_code);
-  const bar = "─".repeat(code.length + 6);
+  // The one-time code is EMAILED (never in a URL). Open the plain page; the user
+  // signs in and enters the code from their inbox.
+  const verifyUrl = String(dc.verification_uri || "https://diagrams.so/device");
   console.log("");
-  console.log(`  ┌${bar}┐`);
-  console.log(`  │   ${code}   │`);
-  console.log(`  └${bar}┘`);
-  console.log("");
-  console.log(`  Visit ${dc.verification_uri_complete} to approve this device.`);
-  console.log("  (Opening your browser — if nothing happens, open the link yourself.)");
+  console.log(`  We emailed a sign-in code to ${email}.`);
+  console.log(`  Opening ${verifyUrl} — sign in and enter the code to approve.`);
+  console.log("  (If your browser didn't open, visit the link above yourself.)");
   if (!livemode) {
     console.log("");
     console.log("  Test keys charge the same credits as live — not a free sandbox (lower rate limits only).");
   }
   console.log("");
-  openBrowser(String(dc.verification_uri_complete));
+  openBrowser(verifyUrl);
 
   let interval = Number.isFinite(Number(dc.interval)) ? Math.max(0, Number(dc.interval)) : 5;
   const expiresInMs = Number(dc.expires_in) > 0 ? Number(dc.expires_in) * 1000 : 900_000;
@@ -258,6 +296,12 @@ async function finishLogin(base: string, tok: any): Promise<number> {
       console.error("Login succeeded but the credential could not be saved. Re-run login in an interactive terminal.");
     }
   }
+
+  // Now that the new key is in hand, confirm it so the server retires the
+  // previous same-device key. Deferred until here so a failed save never
+  // revokes the old key and strands the user (the lockout we're preventing).
+  await confirmKey(base, String(tok.access_token));
+
   try {
     console.log(await accountLine(base, String(tok.access_token), record.livemode));
   } catch (e: any) {
