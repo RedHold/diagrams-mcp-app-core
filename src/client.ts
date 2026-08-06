@@ -14,8 +14,8 @@ import { join } from "node:path";
 export const BASE = (process.env.DIAGRAMS_API_BASE || "https://api.diagrams.so/api/v2").replace(/\/+$/, "");
 // Identify this client so the API attributes charges to source="mcp" in the
 // credit-consumption history (X-Diagrams-Client wins; User-Agent is a fallback).
-export const CLIENT_ID = "mcp/1.4.2";
-export const USER_AGENT = "@diagrams-so/mcp/1.4.2";
+export const CLIENT_ID = "mcp/1.4.3";
+export const USER_AGENT = "@diagrams-so/mcp/1.4.3";
 // Safety-net timeout so a hung/slow API surfaces a clean tool error instead of
 // hanging the MCP client forever. 450s sits ABOVE the server-side ladder
 // (LLM worst-case ~160s < gunicorn 300s < nginx 330s < ALB 360s) so the client

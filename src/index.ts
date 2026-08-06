@@ -30,7 +30,7 @@ import {
   withTool,
 } from "./client.js";
 
-const SERVER_VERSION = "1.4.2";
+const SERVER_VERSION = "1.4.3";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },

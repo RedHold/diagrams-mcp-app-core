@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "diagrams-so",
   "display_name": "Diagrams.so",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Generate, edit, and manage cloud architecture diagrams (draw.io / SVG) with AI.",
   "long_description": "The Diagrams.so MCP server lets Claude generate cloud architecture diagrams from a prompt, review Well-Architected warnings, fix them, edit iteratively, search a public gallery, and export native .drawio / SVG \u2014 all through the Diagrams.so public API. Reads are free; generate/edit/fix cost credits.",
   "author": {
