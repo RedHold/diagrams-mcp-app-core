@@ -27,9 +27,10 @@ import {
   recordCharge,
   recordUnknownCharge,
   sessionCharges,
+  withTool,
 } from "./client.js";
 
-const SERVER_VERSION = "1.4.2";
+const SERVER_VERSION = "1.4.3";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },
@@ -42,6 +43,22 @@ const server = new McpServer(
       "Use list_capabilities to discover valid diagram types / providers / formats before generating.",
   },
 );
+
+/**
+ * Tag every request a tool makes with that tool's name.
+ *
+ * Wrapping registerTool once, rather than threading a name through 23 call
+ * sites, means a 24th tool is covered the moment it is registered — the
+ * failure mode of the per-call-site version is that the newest tool is the
+ * one missing from the data, which is exactly the tool you added it to watch.
+ *
+ * Server-side this arrives as `X-Diagrams-Tool` and lands in the activity
+ * row's metadata, so `generate_diagram` and `fix_warning` stop being the same
+ * row and the read-only tools stop being invisible.
+ */
+const registerTool: typeof server.registerTool = ((name: string, config: any, handler: any) =>
+  server.registerTool(name, config, ((...args: any[]) =>
+    withTool(name, () => handler(...args))) as any)) as any;
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
 
@@ -121,7 +138,7 @@ async function withHeartbeat<T>(extra: any, message: string, fn: () => Promise<T
 // Generate / edit / fix / relayout  (billable, mutating)
 // ---------------------------------------------------------------------------
 
-server.registerTool(
+registerTool(
   "generate_diagram",
   {
     title: "Generate a diagram",
@@ -154,7 +171,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "edit_diagram",
   {
     title: "Edit a diagram",
@@ -178,7 +195,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "fix_warning",
   {
     title: "Fix one warning",
@@ -204,7 +221,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "relayout_diagram",
   {
     title: "Re-arrange layout with AI",
@@ -290,7 +307,7 @@ server.registerTool(
 // Create-from-existing / lifecycle mutations
 // ---------------------------------------------------------------------------
 
-server.registerTool(
+registerTool(
   "import_diagram",
   {
     title: "Import a diagram",
@@ -315,7 +332,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "update_diagram",
   {
     title: "Update a diagram",
@@ -345,7 +362,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "delete_diagram",
   {
     title: "Delete a diagram",
@@ -365,7 +382,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "revert_diagram",
   {
     title: "Revert to a version",
@@ -398,7 +415,7 @@ server.registerTool(
 // Reads
 // ---------------------------------------------------------------------------
 
-server.registerTool(
+registerTool(
   "get_diagram",
   {
     title: "Get a diagram",
@@ -421,7 +438,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "list_diagrams",
   {
     title: "List my diagrams",
@@ -451,7 +468,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "get_warnings",
   {
     title: "Get Well-Architected warnings",
@@ -473,7 +490,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "export_diagram",
   {
     title: "Export a diagram",
@@ -499,7 +516,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "list_versions",
   {
     title: "List diagram versions",
@@ -533,7 +550,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "get_version",
   {
     title: "Get a diagram version",
@@ -562,7 +579,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "get_relayout_status",
   {
     title: "Poll a re-layout job",
@@ -602,7 +619,7 @@ server.registerTool(
 // Gallery
 // ---------------------------------------------------------------------------
 
-server.registerTool(
+registerTool(
   "search_gallery",
   {
     title: "Search the gallery",
@@ -638,7 +655,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "fork_template",
   {
     title: "Fork a public diagram",
@@ -663,7 +680,7 @@ server.registerTool(
 // Prompt helpers + identity + capabilities
 // ---------------------------------------------------------------------------
 
-server.registerTool(
+registerTool(
   "enhance_prompt",
   {
     title: "Enhance a prompt",
@@ -685,7 +702,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "clarify_prompt",
   {
     title: "Clarify a vague prompt",
@@ -708,7 +725,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "get_usage",
   {
     title: "Get usage & credits",
@@ -726,7 +743,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "get_usage_history",
   {
     title: "Credit consumption history",
@@ -790,7 +807,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "whoami",
   {
     title: "Who am I",
@@ -810,7 +827,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
+registerTool(
   "list_capabilities",
   {
     title: "List capabilities",

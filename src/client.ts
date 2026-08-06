@@ -5,6 +5,7 @@
  * is the ONLY place that knows about HTTP, auth, or the API's error shape.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomBytes, randomUUID } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir, hostname } from "node:os";
@@ -13,14 +14,41 @@ import { join } from "node:path";
 export const BASE = (process.env.DIAGRAMS_API_BASE || "https://api.diagrams.so/api/v2").replace(/\/+$/, "");
 // Identify this client so the API attributes charges to source="mcp" in the
 // credit-consumption history (X-Diagrams-Client wins; User-Agent is a fallback).
-export const CLIENT_ID = "mcp/1.4.2";
-export const USER_AGENT = "@diagrams-so/mcp/1.4.2";
+export const CLIENT_ID = "mcp/1.4.3";
+export const USER_AGENT = "@diagrams-so/mcp/1.4.3";
 // Safety-net timeout so a hung/slow API surfaces a clean tool error instead of
 // hanging the MCP client forever. 450s sits ABOVE the server-side ladder
 // (LLM worst-case ~160s < gunicorn 300s < nginx 330s < ALB 360s) so the client
 // never aborts work the server would still deliver. Override with
 // DIAGRAMS_API_TIMEOUT_MS.
 const TIMEOUT_MS = Math.max(1000, Number(process.env.DIAGRAMS_API_TIMEOUT_MS) || 450_000);
+
+/**
+ * Which tool is running, so each request can say so in `X-Diagrams-Tool`.
+ *
+ * The API sees only that a call came from "mcp". These 23 tools collapse into
+ * about eight API call types, so `generate_diagram` and `fix_warning` look
+ * identical to it, and the ten read-only tools (`list_diagrams`,
+ * `get_warnings`, `whoami`…) leave no trace at all — which makes "a developer
+ * installed this and had a poke around" indistinguishable from "nobody came".
+ *
+ * AsyncLocalStorage rather than a module-level variable: a client can have
+ * several tool calls in flight, and a plain variable would attribute whichever
+ * finished last. Set once by the registerTool wrapper in index.ts, so adding a
+ * 24th tool cannot forget to do it.
+ *
+ * Carries the tool NAME only. No arguments, no prompts — this rides on every
+ * request and is not a place for customer content.
+ */
+const toolContext = new AsyncLocalStorage<string>();
+
+export function withTool<T>(tool: string, fn: () => T): T {
+  return toolContext.run(tool, fn);
+}
+
+export function currentTool(): string | undefined {
+  return toolContext.getStore();
+}
 
 /** The API's house error envelope: {error:{code,message,request_id,details}}. */
 export class ApiError extends Error {
@@ -298,6 +326,10 @@ export async function apiRequest<T = any>(
     "User-Agent": USER_AGENT,
     "X-Diagrams-Client": CLIENT_ID,
   };
+  // Which of the 23 tools drove this call. Omitted rather than guessed when
+  // the request did not originate in a tool (the CLI, a login refresh).
+  const tool = currentTool();
+  if (tool) headers["X-Diagrams-Tool"] = tool;
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
   if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey;
 
