@@ -102,7 +102,7 @@ the same thing as a web page: type the prompt in the box. No install, no `login`
 | `get_diagram` | Fetch a diagram's XML + score |
 | `list_diagrams` | List your diagrams (cursor-paginated) |
 | `get_warnings` | Well-Architected findings for a diagram |
-| `export_diagram` | Raw `drawio` or `svg` file (SVG is a paid feature) |
+| `export_diagram` | Raw `drawio` or `svg` file (free on every plan; free-plan SVG is watermarked) |
 | `list_versions` | Version history (with `is_current`) |
 | `get_version` | A specific version's XML + score |
 | `get_relayout_status` | Poll an async re-layout job |
