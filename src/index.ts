@@ -30,7 +30,7 @@ import {
   withTool,
 } from "./client.js";
 
-const SERVER_VERSION = "1.4.3";
+const SERVER_VERSION = "1.4.4";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },
@@ -496,7 +496,7 @@ registerTool(
     title: "Export a diagram",
     description:
       "Export a diagram as a raw file: `drawio` (open at app.diagrams.net) or `svg`. Returns the file content directly. " +
-      "SVG export is a paid feature.",
+      "Exports are free on every plan. Free-plan SVG exports carry a watermark.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       format: z.enum(["drawio", "svg"]).default("drawio").describe("drawio or svg"),
