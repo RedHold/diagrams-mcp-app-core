@@ -30,7 +30,7 @@ import {
   withTool,
 } from "./client.js";
 
-const SERVER_VERSION = "1.4.4";
+const SERVER_VERSION = "1.4.5";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },
@@ -687,7 +687,7 @@ registerTool(
     description: "Turn a rough idea into a detailed generation prompt. Free.",
     inputSchema: {
       prompt: z.string().min(5).describe("Your rough prompt"),
-      cloud_provider: z.string().optional(),
+      cloud_provider: z.string().optional().describe("aws | azure | gcp | kubernetes | oci | general — biases the enhanced prompt toward that provider's services"),
     },
     annotations: READ,
   },

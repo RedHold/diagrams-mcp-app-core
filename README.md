@@ -1,6 +1,7 @@
 # @diagrams-so/mcp
 
 [![CI](https://github.com/RedHold/diagrams-mcp-app-core/actions/workflows/ci.yml/badge.svg)](https://github.com/RedHold/diagrams-mcp-app-core/actions/workflows/ci.yml)
+[![Smithery](https://img.shields.io/badge/Smithery-diagrams--so%2Fmcp-orange)](https://smithery.ai/servers/diagrams-so/mcp)
 
 The **Diagrams.so MCP server** — generate, edit, and manage cloud architecture diagrams from any MCP client (Claude Desktop, Claude Code, Cursor). It's a thin stdio client over the public Diagrams.so API (`/api/v2`); every tool is one REST call.
 
@@ -180,6 +181,17 @@ Claude Desktop. No terminal, and it no longer asks for an API key: install it, t
 use by clicking the link the first tool call gives you.
 
 Building the bundle yourself is a contributor step, see [Developing locally](#developing-locally).
+
+### Smithery
+The server is listed at [smithery.ai/servers/diagrams-so/mcp](https://smithery.ai/servers/diagrams-so/mcp),
+which installs it for you and lists all 23 tools with their parameters:
+
+```bash
+npx -y smithery mcp add diagrams-so/mcp
+```
+
+Same package, same `login` step. It's the MCPB bundle Smithery installs, not the npm package, so the
+version shown there follows releases rather than `npm dist-tags`.
 
 ## Verify it works
 ```bash

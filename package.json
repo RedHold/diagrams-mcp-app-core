@@ -1,8 +1,8 @@
 {
   "name": "@diagrams-so/mcp",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "mcpName": "io.github.RedHold/diagrams-so-mcp",
-  "description": "MCP server for Diagrams.so \u2014 generate, edit, and manage architecture diagrams from any MCP client (Claude, Cursor).",
+  "description": "MCP server for Diagrams.so — generate, edit, and manage architecture diagrams from any MCP client (Claude, Cursor).",
   "keywords": [
     "mcp",
     "model-context-protocol",
