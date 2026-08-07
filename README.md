@@ -1,6 +1,7 @@
 # @diagrams-so/mcp
 
 [![CI](https://github.com/RedHold/diagrams-mcp-app-core/actions/workflows/ci.yml/badge.svg)](https://github.com/RedHold/diagrams-mcp-app-core/actions/workflows/ci.yml)
+[![Smithery](https://img.shields.io/badge/Smithery-diagrams--so%2Fmcp-orange)](https://smithery.ai/servers/diagrams-so/mcp)
 
 The **Diagrams.so MCP server** — generate, edit, and manage cloud architecture diagrams from any MCP client (Claude Desktop, Claude Code, Cursor). It's a thin stdio client over the public Diagrams.so API (`/api/v2`); every tool is one REST call.
 

@@ -3,7 +3,7 @@
   "name": "io.github.RedHold/diagrams-so-mcp",
   "title": "Diagrams.so",
   "description": "Generate and edit AWS, Azure, GCP and Kubernetes architecture diagrams as editable draw.io files.",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "websiteUrl": "https://diagrams.so/developers",
   "repository": {
     "url": "https://github.com/RedHold/diagrams-mcp-app-core",
@@ -14,7 +14,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@diagrams-so/mcp",
-      "version": "1.4.4",
+      "version": "1.4.5",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
