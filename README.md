@@ -182,6 +182,17 @@ use by clicking the link the first tool call gives you.
 
 Building the bundle yourself is a contributor step, see [Developing locally](#developing-locally).
 
+### Smithery
+The server is listed at [smithery.ai/servers/diagrams-so/mcp](https://smithery.ai/servers/diagrams-so/mcp),
+which installs it for you and lists all 23 tools with their parameters:
+
+```bash
+npx -y smithery mcp add diagrams-so/mcp
+```
+
+Same package, same `login` step. It's the MCPB bundle Smithery installs, not the npm package, so the
+version shown there follows releases rather than `npm dist-tags`.
+
 ## Verify it works
 ```bash
 DIAGRAMS_API_KEY=dgz_live_your_key node test-smoke.mjs
