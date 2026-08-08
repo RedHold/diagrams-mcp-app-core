@@ -481,7 +481,6 @@ export interface Usage {
   tier?: string | null;
 }
 
-/** Render a credits line for tool results (dossier §8.5). */
 export function usageLine(usage?: Usage | null): string {
   if (!usage) return "";
   return `\nCredits: ${usage.credits_charged} charged · ${usage.credits_remaining} remaining (${usage.tier ?? "?"}).`;
