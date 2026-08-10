@@ -10,6 +10,9 @@
   },
   "homepage": "https://diagrams.so",
   "documentation": "https://diagrams.so/developers",
+  "privacy_policies": [
+    "https://diagrams.so/policy/privacy"
+  ],
   "icon": "icon.png",
   "server": {
     "type": "node",
