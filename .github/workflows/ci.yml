@@ -39,5 +39,8 @@ jobs:
           # Dummy key — the smoke makes zero API calls, so nothing is billed.
           DIAGRAMS_API_KEY: dgz_test_ci_dummy_no_calls
 
+      - name: Remote transport — 401 handshake, PRM, tools/list, Bearer forwarding (stub API)
+        run: node scripts/test-remote-http.mjs
+
       - name: Idempotency & billing safety — local stub API, no network
         run: node scripts/test-idempotency.mjs

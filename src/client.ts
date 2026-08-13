@@ -50,6 +50,16 @@ export function currentTool(): string | undefined {
   return toolContext.getStore();
 }
 
+// Per-request credential override for the REMOTE (Streamable-HTTP) transport:
+// the hosted connector authenticates each user by forwarding the inbound OAuth
+// Bearer. Set ONLY on the remote path (src/http.ts); the stdio entry never sets
+// it, so resolveCredential()'s env→login-file order is unchanged for npm installs.
+const credentialContext = new AsyncLocalStorage<string>();
+
+export function withCredential<T>(key: string, fn: () => T): T {
+  return credentialContext.run(key, fn);
+}
+
 /** The API's house error envelope: {error:{code,message,request_id,details}}. */
 export class ApiError extends Error {
   constructor(
@@ -104,7 +114,10 @@ export function readCachedCredentials(baseUrl: string = BASE): CachedCredentials
 
 /** Resolve the credential to use, with its provenance. Resolved per request so
  * a `login` run while the server is up is picked up without a restart. */
-export function resolveCredential(): { key: string; source: "env" | "login" } | null {
+export function resolveCredential(): { key: string; source: "env" | "login" | "request" } | null {
+  // Remote transport: a per-request forwarded Bearer wins (set-only there).
+  const forwarded = credentialContext.getStore();
+  if (forwarded) return { key: forwarded, source: "request" };
   const env = process.env.DIAGRAMS_API_KEY;
   if (env) return { key: env, source: "env" };
   const cached = readCachedCredentials(BASE);

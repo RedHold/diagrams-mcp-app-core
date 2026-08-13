@@ -15,6 +15,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   apiRequest,
@@ -32,6 +33,10 @@ import {
 
 const SERVER_VERSION = "1.4.5";
 
+// Factory so both transports get their own server instance. The stdio bootstrap
+// (main) calls this once; the remote Streamable-HTTP entry (src/http.ts) calls it
+// per request (stateless mode requires a fresh server+transport per request).
+export function createServer(): McpServer {
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },
   {
@@ -855,6 +860,9 @@ registerTool(
   },
 );
 
+  return server;
+}
+
 // ---------------------------------------------------------------------------
 
 const CLI_COMMANDS = new Set(["login", "logout", "whoami", "install"]);
@@ -870,13 +878,19 @@ async function main() {
     return;
   }
 
+  const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stdout is the MCP channel — logs must go to stderr.
   console.error(`diagrams-so MCP server v${SERVER_VERSION} running on stdio.`);
 }
 
-main().catch((e) => {
-  console.error("Fatal:", e);
-  process.exit(1);
-});
+// Only auto-start the stdio server when run as the entry point — so importing
+// createServer() from src/http.ts (the remote transport) has no side effects.
+const _entry = process.argv[1] ? fileURLToPath(import.meta.url) === process.argv[1] : false;
+if (_entry) {
+  main().catch((e) => {
+    console.error("Fatal:", e);
+    process.exit(1);
+  });
+}
