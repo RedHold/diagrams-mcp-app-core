@@ -20,7 +20,11 @@ import { withCredential } from "./client.js";
 const PORT = Number(process.env.PORT || 8080);
 const PUBLIC_URL = (process.env.MCP_PUBLIC_URL || "https://mcp.diagrams.so").replace(/\/+$/, "");
 const ISSUER = (process.env.OAUTH_ISSUER || "https://api.diagrams.so").replace(/\/+$/, "");
-const SCOPES = "diagrams:read diagrams:write gallery:read usage:read meta:read";
+// Data scopes the resource accepts, PLUS offline_access — the connector authorization
+// server issues a refresh token ONLY when offline_access is granted, so it must be
+// advertised here (PRM scopes_supported + the WWW-Authenticate scope hint) or Claude
+// won't request it and the grant would silently expire in ~30 days with no refresh.
+const SCOPES = "diagrams:read diagrams:write gallery:read usage:read meta:read offline_access";
 const RESOURCE = `${PUBLIC_URL}/mcp`;
 const WWW_AUTHENTICATE =
   `Bearer resource_metadata="${PUBLIC_URL}/.well-known/oauth-protected-resource", ` +
