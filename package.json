@@ -44,6 +44,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:http": "node dist/http.js",
     "dev": "tsc && node dist/index.js",
     "prepare": "npm run build",
     "smoke": "node test-smoke.mjs",
@@ -56,10 +57,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "express": "^5.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "@types/express": "^5.0.0"
   }
 }

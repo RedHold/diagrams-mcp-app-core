@@ -15,6 +15,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   apiRequest,
@@ -27,11 +28,16 @@ import {
   recordCharge,
   recordUnknownCharge,
   sessionCharges,
+  isRemoteRequest,
   withTool,
 } from "./client.js";
 
 const SERVER_VERSION = "1.4.5";
 
+// Factory so both transports get their own server instance. The stdio bootstrap
+// (main) calls this once; the remote Streamable-HTTP entry (src/http.ts) calls it
+// per request (stateless mode requires a fresh server+transport per request).
+export function createServer(): McpServer {
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },
   {
@@ -779,7 +785,11 @@ registerTool(
         (action || source ? " (filtered)" : "") +
         `:\n${lines.join("\n") || "  (no tasks yet)"}`;
       if (page.has_more) out += `\n\nMore available — call again with cursor="${page.next_cursor}".`;
-      if (sessionCharges.length) {
+      // The "this session" tally is a stdio-only affordance (one process = one user).
+      // It is suppressed on the remote transport, where the process is shared across
+      // users — rendering it there would leak another user's charges into this reply
+      // (and the writers no-op there anyway, so it would always be empty or foreign).
+      if (!isRemoteRequest() && sessionCharges.length) {
         // Audit M3: label the two scopes honestly. The ledger above is the
         // authoritative record (server-side, filter-scoped); the tally below is
         // only what THIS process saw — confirmed responses plus calls whose
@@ -855,6 +865,9 @@ registerTool(
   },
 );
 
+  return server;
+}
+
 // ---------------------------------------------------------------------------
 
 const CLI_COMMANDS = new Set(["login", "logout", "whoami", "install"]);
@@ -870,13 +883,19 @@ async function main() {
     return;
   }
 
+  const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   // stdout is the MCP channel — logs must go to stderr.
   console.error(`diagrams-so MCP server v${SERVER_VERSION} running on stdio.`);
 }
 
-main().catch((e) => {
-  console.error("Fatal:", e);
-  process.exit(1);
-});
+// Only auto-start the stdio server when run as the entry point — so importing
+// createServer() from src/http.ts (the remote transport) has no side effects.
+const _entry = process.argv[1] ? fileURLToPath(import.meta.url) === process.argv[1] : false;
+if (_entry) {
+  main().catch((e) => {
+    console.error("Fatal:", e);
+    process.exit(1);
+  });
+}

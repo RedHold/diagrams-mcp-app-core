@@ -39,5 +39,37 @@ jobs:
           # Dummy key — the smoke makes zero API calls, so nothing is billed.
           DIAGRAMS_API_KEY: dgz_test_ci_dummy_no_calls
 
+      - name: Remote transport — 401 handshake, PRM, tools/list, Bearer forwarding (stub API)
+        run: node scripts/test-remote-http.mjs
+
+      - name: Remote transport — credential isolation under concurrency (stub API)
+        run: node scripts/test-remote-concurrency.mjs
+
+      - name: Remote transport — session-charge ledger isolation, no cross-user leak (stub API)
+        run: node scripts/test-remote-ledger-isolation.mjs
+
       - name: Idempotency & billing safety — local stub API, no network
         run: node scripts/test-idempotency.mjs
+
+  # Build the remote-MCP deploy image (mcp.diagrams.so) and prove it boots: the
+  # container must answer /health and 401 an unauthenticated /mcp. Keeps deploy/Dockerfile
+  # from silently breaking. No push — that's the deploy pipeline's job (deploy/DEPLOY.md).
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f deploy/Dockerfile -t diagrams-mcp:ci .
+      - name: Boot the container and smoke /health + 401 handshake
+        run: |
+          docker run -d --name mcp-ci -p 8080:8080 \
+            -e MCP_PUBLIC_URL=https://mcp.diagrams.so \
+            -e OAUTH_ISSUER=https://api.diagrams.so \
+            -e DIAGRAMS_API_BASE=https://api.diagrams.so/api/v2 \
+            diagrams-mcp:ci
+          for i in $(seq 1 15); do curl -sf http://127.0.0.1:8080/health && break; sleep 1; done
+          test "$(curl -s http://127.0.0.1:8080/health)" = "ok"
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8080/mcp \
+            -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}')
+          echo "unauth /mcp -> $code"; test "$code" = "401"
+          docker rm -f mcp-ci
