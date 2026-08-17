@@ -60,6 +60,16 @@ export function withCredential<T>(key: string, fn: () => T): T {
   return credentialContext.run(key, fn);
 }
 
+/** True while serving a REMOTE (hosted, multi-tenant) request — i.e. a per-request
+ * forwarded Bearer is in scope (set only by src/http.ts via withCredential). The
+ * stdio entry never sets one. This is the structural signal for "this process is
+ * serving many users, not one": it is exactly the invariant that makes the request
+ * multi-tenant, so anything that must not cross users keys off it. Used to suppress
+ * the process-global session ledger (see sessionCharges) on the remote path. */
+export function isRemoteRequest(): boolean {
+  return credentialContext.getStore() !== undefined;
+}
+
 /** The API's house error envelope: {error:{code,message,request_id,details}}. */
 export class ApiError extends Error {
   constructor(
@@ -515,10 +525,23 @@ export interface SessionCharge {
   creditsRemaining?: number;
   note?: string;
 }
+//
+// STDIO ONLY. This is a process-global "what did I charge this session" tally. It
+// is correct for stdio (one long-lived process = one user = one session) and
+// meaningless-and-unsafe on the remote transport: that process is shared by every
+// user and each request is stateless/independent, so a shared global would (a) bleed
+// one user's diagram ids / credits into another user's get_usage_history, and
+// (b) never even reflect the caller's own earlier calls (there is no cross-request
+// session). Both writers below no-op on the remote path (isRemoteRequest); the
+// renderer in index.ts is gated too. On remote, per-user history comes from the
+// API's authoritative /usage/history.
 export const sessionCharges: SessionCharge[] = [];
 
-/** Record a billable task's charge from its response `usage` block. */
+/** Record a billable task's charge from its response `usage` block. No-op on the
+ * remote path (the shared global must never carry one user's charge into another's
+ * response); returns the result unchanged either way so it stays a passthrough. */
 export function recordCharge<T extends { id?: string; usage?: Usage | null }>(action: string, result: T): T {
+  if (isRemoteRequest()) return result;
   const u = result?.usage;
   if (u) {
     sessionCharges.push({
@@ -533,8 +556,10 @@ export function recordCharge<T extends { id?: string; usage?: Usage | null }>(ac
 }
 
 /** Record a billable call whose outcome this process never saw (audit M3):
- * the server may or may not have charged — only the ledger knows. */
+ * the server may or may not have charged — only the ledger knows. No-op on the
+ * remote path (same shared-process reason as recordCharge). */
 export function recordUnknownCharge(action: string, note?: string): void {
+  if (isRemoteRequest()) return;
   sessionCharges.push({ action, status: "unknown", note });
 }
 

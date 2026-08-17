@@ -28,6 +28,7 @@ import {
   recordCharge,
   recordUnknownCharge,
   sessionCharges,
+  isRemoteRequest,
   withTool,
 } from "./client.js";
 
@@ -784,7 +785,11 @@ registerTool(
         (action || source ? " (filtered)" : "") +
         `:\n${lines.join("\n") || "  (no tasks yet)"}`;
       if (page.has_more) out += `\n\nMore available — call again with cursor="${page.next_cursor}".`;
-      if (sessionCharges.length) {
+      // The "this session" tally is a stdio-only affordance (one process = one user).
+      // It is suppressed on the remote transport, where the process is shared across
+      // users — rendering it there would leak another user's charges into this reply
+      // (and the writers no-op there anyway, so it would always be empty or foreign).
+      if (!isRemoteRequest() && sessionCharges.length) {
         // Audit M3: label the two scopes honestly. The ledger above is the
         // authoritative record (server-side, filter-scoped); the tally below is
         // only what THIS process saw — confirmed responses plus calls whose

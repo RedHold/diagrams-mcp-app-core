@@ -45,5 +45,8 @@ jobs:
       - name: Remote transport — credential isolation under concurrency (stub API)
         run: node scripts/test-remote-concurrency.mjs
 
+      - name: Remote transport — session-charge ledger isolation, no cross-user leak (stub API)
+        run: node scripts/test-remote-ledger-isolation.mjs
+
       - name: Idempotency & billing safety — local stub API, no network
         run: node scripts/test-idempotency.mjs
