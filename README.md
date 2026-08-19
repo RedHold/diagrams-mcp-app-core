@@ -242,3 +242,12 @@ claude mcp add diagrams-so-dev -- node "$(pwd)/dist/index.js"
 # build the MCPB bundle
 npm run build && npx @anthropic-ai/mcpb pack
 ```
+
+## License and legal
+
+- **Code:** [Apache-2.0](./LICENSE). See [NOTICE](./NOTICE).
+- **Service:** this server is a client for the Diagrams.so API. Use of the API is governed by the [Terms of Service](https://diagrams.so/policy/terms) and [Acceptable Use Policy](https://diagrams.so/policy/acceptable-use); the code license grants no rights to the API itself.
+- **Privacy:** the server runs locally, connects only to `api.diagrams.so`, and contains no telemetry. Credentials from `login` are stored at `~/.diagrams-so/credentials.json` with owner-only permissions. See the [Privacy Policy](https://diagrams.so/policy/privacy).
+- **Billing:** generate, edit, fix, re-layout, and fork operations cost credits; reads and exports are free. Test-mode keys bill your real credit balance.
+- **Trademarks:** Diagrams.so and the Diagrams.so logo are trademarks of RedHold LLC. This license does not grant permission to use them, except to accurately describe the package's origin. See the [Trademark Policy](https://diagrams.so/policy/trademark).
+- **Security:** report vulnerabilities to security@diagrams.so per [SECURITY.md](./SECURITY.md).
