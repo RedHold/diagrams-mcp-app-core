@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.4.6] — 2026-08
+
+Repairs in-tool connect against the emailed-code login the API moved to in
+early August (#22). The terminal `login` command was already correct; only
+the no-terminal path inside chat clients was broken.
+
+- **In-tool connect works again when `DIAGRAMS_LOGIN_EMAIL` is set.** The
+  device-code request now carries the email address the API requires, and the
+  connect reply tells the user the code was emailed and hands them the
+  approval link. The old reply showed an on-screen code the API no longer
+  returns.
+- **No more doomed requests.** Without `DIAGRAMS_LOGIN_EMAIL`, an
+  unauthenticated tool call no longer fires a device-code request that can
+  only be rejected (previously one 426 per tool call, forever); it falls back
+  to the terminal instruction immediately.
+- README documents `DIAGRAMS_LOGIN_EMAIL`; the Claude Desktop no-terminal
+  path now states the email requirement.
+
 ## [1.4.1] — 2026-08
 
 Discovery and listings release. No tool or API changes (still 23 tools);

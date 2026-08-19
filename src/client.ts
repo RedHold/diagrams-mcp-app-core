@@ -14,8 +14,8 @@ import { join } from "node:path";
 export const BASE = (process.env.DIAGRAMS_API_BASE || "https://api.diagrams.so/api/v2").replace(/\/+$/, "");
 // Identify this client so the API attributes charges to source="mcp" in the
 // credit-consumption history (X-Diagrams-Client wins; User-Agent is a fallback).
-export const CLIENT_ID = "mcp/1.4.5";
-export const USER_AGENT = "@diagrams-so/mcp/1.4.5";
+export const CLIENT_ID = "mcp/1.4.6";
+export const USER_AGENT = "@diagrams-so/mcp/1.4.6";
 // Safety-net timeout so a hung/slow API surfaces a clean tool error instead of
 // hanging the MCP client forever. 450s sits ABOVE the server-side ladder
 // (LLM worst-case ~160s < gunicorn 300s < nginx 330s < ALB 360s) so the client
@@ -126,7 +126,8 @@ export const CLI_NAME = (() => {
 })();
 
 export const NOT_CONNECTED_MSG =
-  `Not connected — run \`${CLI_NAME} login\` in a terminal (or set DIAGRAMS_API_KEY).`;
+  `Not connected — run \`${CLI_NAME} login\` in a terminal (or set DIAGRAMS_API_KEY; ` +
+  `setting DIAGRAMS_LOGIN_EMAIL enables in-chat connect).`;
 
 // ---------------------------------------------------------------------------
 // Credential cache WRITE (shared by `login` and in-tool connect, so the on-disk
@@ -195,25 +196,29 @@ export async function postDeviceJson(url: string, body: unknown): Promise<{ stat
 
 // ---------------------------------------------------------------------------
 // In-tool connect (no terminal): when a tool runs with no credential we start a
-// device-flow grant, hand the user a link to click, and poll in the background.
+// device-flow grant, hand the user the approval link, and poll in the background.
 // The moment they approve, the key is cached and the next tool call just works
 // — the whole flow stays inside the chat client (Claude Desktop has no terminal).
-// Disable with DIAGRAMS_NO_AUTO_LOGIN=1 (CI/headless).
+// The API emails the one-time sign-in code (it never appears in a URL or in this
+// process), so starting a grant needs an address: DIAGRAMS_LOGIN_EMAIL. Without
+// it we don't call the endpoint at all — the request could only be rejected —
+// and callers fall back to the terminal instruction.
+// Disable entirely with DIAGRAMS_NO_AUTO_LOGIN=1 (CI/headless).
 // ---------------------------------------------------------------------------
 interface PendingConnect {
   url: string;
-  code: string;
+  email: string;
   expiresAt: number;
 }
 let pendingConnect: PendingConnect | null = null;
 
 function connectMessage(p: PendingConnect): string {
   return (
-    `Not connected to your Diagrams.so account yet — this takes about 15 seconds:\n\n` +
+    `Not connected to your Diagrams.so account yet — a one-time sign-in code was just emailed to ${p.email}:\n\n` +
     `1. Open ${p.url}\n` +
-    `2. Check the page shows code ${p.code}, then click Approve\n` +
+    `2. Sign in, enter the code from the email, and click Approve\n` +
     `3. Ask me again — I'll be connected.\n\n` +
-    `New here? You can sign up on that page. Prefer a terminal? Run ` +
+    `Wrong address? Set DIAGRAMS_LOGIN_EMAIL and ask again. Prefer a terminal? Run ` +
     `\`npx @diagrams-so/mcp login\` instead, or set DIAGRAMS_API_KEY for CI.`
   );
 }
@@ -262,17 +267,23 @@ function pollConnectInBackground(deviceCode: string, intervalSec: number, deadli
 export async function beginConnect(): Promise<PendingConnect | null> {
   if (process.env.DIAGRAMS_NO_AUTO_LOGIN) return null;
   if (pendingConnect && Date.now() < pendingConnect.expiresAt) return pendingConnect;
+  // The endpoint emails the one-time code, so it rejects any request that
+  // carries no address. A headless process has no way to ask for one — skip
+  // the doomed call instead of burning a 426 on every unauthenticated tool call.
+  const email = (process.env.DIAGRAMS_LOGIN_EMAIL || "").trim();
+  if (!email || !email.includes("@")) return null;
   try {
     const { status, json } = await postDeviceJson(`${BASE}/oauth/device/code`, {
       client_id: "mcp",
       livemode: true,
       device_name: hostname(),
+      email,
     });
-    if (status !== 200 || !json?.device_code || !json?.user_code) return null;
+    if (status !== 200 || !json?.device_code || !json?.verification_uri) return null;
     const ttlMs = (Number(json.expires_in) > 0 ? Number(json.expires_in) : 900) * 1000;
     pendingConnect = {
-      url: String(json.verification_uri_complete || json.verification_uri),
-      code: String(json.user_code),
+      url: String(json.verification_uri),
+      email,
       expiresAt: Date.now() + ttlMs,
     };
     pollConnectInBackground(
