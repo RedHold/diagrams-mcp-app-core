@@ -35,9 +35,10 @@ Using Claude Desktop or Cursor instead of the CLI? See [Add it to your MCP clien
 <details>
 <summary>No terminal at all (Claude Desktop)</summary>
 
-Add the server to your client config (below), then just ask for a diagram. Because the machine
-isn't connected yet, the first tool call replies with a link. Open it, press **Approve**, and ask
-again. Nothing to install or type.
+Add the server to your client config (below) with `DIAGRAMS_LOGIN_EMAIL` set to your email,
+then just ask for a diagram. Because the machine isn't connected yet, the first tool call
+emails you a one-time sign-in code and replies with a link. Open it, enter the code, press
+**Approve**, and ask again. Nothing to install or type.
 </details>
 
 ## Generating a diagram from Claude
@@ -143,6 +144,7 @@ diagrams-so install        # print client config to paste
 | `DIAGRAMS_BROWSER` | ❌ | — (`login` opens your default browser; set e.g. `Google Chrome` when your Diagrams.so session lives in a non-default browser) |
 | `DIAGRAMS_NO_BROWSER` | ❌ | — (set to any value to stop `login` opening a browser; the URL is always printed) |
 | `DIAGRAMS_NO_AUTO_LOGIN` | ❌ | — (set to any value to disable in-tool connect; unauthenticated tools then just say to run `login`) |
+| `DIAGRAMS_LOGIN_EMAIL` | ❌ | — (address for in-tool connect: the one-time sign-in code is emailed there; without it, unauthenticated tools say to run `login` instead of starting a connect) |
 
 ## Add it to your MCP client
 
@@ -168,9 +170,10 @@ npx @diagrams-so/mcp login
 }
 ```
 
-Connect either by running `npx @diagrams-so/mcp login` once, or by asking for a diagram and
-clicking the link the first tool call gives you. Set `DIAGRAMS_API_KEY` instead only for CI and
-headless machines, where no browser can open.
+Connect either by running `npx @diagrams-so/mcp login` once, or, with `DIAGRAMS_LOGIN_EMAIL`
+set, by asking for a diagram and following the link the first tool call gives you (the sign-in
+code arrives by email). Set `DIAGRAMS_API_KEY` instead only for CI and headless machines,
+where no browser can open.
 
 Restart the client, then ask: *"Generate an AWS 3-tier web app diagram and show me the warnings."*
 
