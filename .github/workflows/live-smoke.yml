@@ -2,12 +2,34 @@ name: Live smoke
 
 # Full end-to-end flow against the REAL Diagrams.so API (import → versions →
 # export → generate → edit → fix → relayout → delete). This SPENDS CREDITS, so
-# it does NOT run on every push — only nightly and on manual dispatch, and only
-# when a DIAGRAMS_API_KEY secret is configured.
+# it runs only where it earns its cost: as a release gate before `npm publish`,
+# and on manual dispatch. It needs a DIAGRAMS_API_KEY secret.
+#
+# It used to run nightly. That was dropped because the credential behind it went
+# invalid on 2026-08-09 and the job then failed every night for a month without
+# anyone acting on it — four npm versions shipped during that window with no
+# end-to-end verification behind them. A gate that blocks a release is harder to
+# ignore than a red cron job, and it is the moment the check actually matters.
+#
+# This is the ONLY test of the published client against the live API: unit tests
+# in this repo and in the API repo both mock the other side, so they stay green
+# while the two drift apart.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 6 * * *' # 06:17 UTC nightly
+  # Called by release.yml before publishing. Kept as a reusable workflow so the
+  # smoke has exactly one definition rather than a copy inside the release job.
+  workflow_call:
+    inputs:
+      gate:
+        description: >-
+          True when this run gates a release. A missing credential then FAILS
+          instead of skipping: a gate that quietly passes when it is
+          misconfigured is the hole that let four versions publish unverified.
+        type: boolean
+        default: false
+    secrets:
+      DIAGRAMS_API_KEY:
+        required: false
 
 jobs:
   live-smoke:
@@ -28,9 +50,27 @@ jobs:
           DIAGRAMS_API_KEY: ${{ secrets.DIAGRAMS_API_KEY }}
           # Override via repo variable if you point at a non-prod API.
           DIAGRAMS_API_BASE: ${{ vars.DIAGRAMS_API_BASE || 'https://api.diagrams.so/api/v2' }}
+          GATING_A_RELEASE: ${{ inputs.gate && 'true' || 'false' }}
         run: |
           if [ -z "$DIAGRAMS_API_KEY" ]; then
+            if [ "$GATING_A_RELEASE" = "true" ]; then
+              echo "::error::DIAGRAMS_API_KEY is not set, so the release cannot be verified against the live API. Set the secret (a long-lived key from the dashboard, not a device login) and re-run."
+              exit 1
+            fi
             echo "::warning::DIAGRAMS_API_KEY secret not set — skipping live smoke."
             exit 0
           fi
+
+          # Check the credential before spending 25 tool calls on it. The client
+          # rewrites every 401 into "Session credential expired or revoked", so a
+          # dead key otherwise surfaces as "11 unexpected" failures and reads like
+          # a product bug. It is not — it is the secret.
+          code=$(curl -s -o /tmp/whoami.json -w '%{http_code}' --max-time 20 \
+                   -H "Authorization: Bearer $DIAGRAMS_API_KEY" "$DIAGRAMS_API_BASE/me" || echo 000)
+          if [ "$code" = "401" ] || [ "$code" = "403" ]; then
+            echo "::error::DIAGRAMS_API_KEY is rejected by $DIAGRAMS_API_BASE (HTTP $code). The server said: $(cat /tmp/whoami.json). Rotate the secret with a long-lived key from the dashboard — a device-login credential is revoked whenever the same device logs in again."
+            exit 1
+          fi
+          echo "credential accepted (HTTP $code) — running the full smoke"
+
           node test-smoke.mjs
