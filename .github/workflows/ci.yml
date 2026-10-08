@@ -41,3 +41,6 @@ jobs:
 
       - name: Idempotency & billing safety — local stub API, no network
         run: node scripts/test-idempotency.mjs
+
+      - name: diagram_type left out is not sent: local stub API, no network
+        run: node scripts/test-diagram-type.mjs

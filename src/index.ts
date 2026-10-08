@@ -30,7 +30,7 @@ import {
   withTool,
 } from "./client.js";
 
-const SERVER_VERSION = "1.4.6";
+const SERVER_VERSION = "1.4.7";
 
 const server = new McpServer(
   { name: "diagrams-so", version: SERVER_VERSION },
@@ -148,7 +148,10 @@ registerTool(
     inputSchema: {
       prompt: z.string().min(1).describe("What to draw, e.g. 'AWS 3-tier web app with ALB, EC2 Auto Scaling and RDS Multi-AZ'"),
       cloud_provider: z.string().optional().describe("aws | azure | gcp | kubernetes | oci | general (default: general)"),
-      diagram_type: z.string().optional().describe("architecture | flowchart | sequence | data_pipeline | ... (default: architecture)"),
+      diagram_type: z.string().optional().describe(
+        "Leave out to let Diagrams pick the kind of diagram from the prompt; or set one of: " +
+        "auto | architecture | flowchart | sequence | data_pipeline | ...",
+      ),
       opinionated: z.boolean().optional().describe("Apply best-practice hardening suggestions during generation (paid plans only)."),
     },
     annotations: WRITE,
@@ -318,7 +321,7 @@ registerTool(
       xml: z.string().min(1).describe("draw.io mxGraphModel/mxfile XML"),
       title: z.string().optional().describe("Optional title (derived if omitted)"),
       cloud_provider: z.string().optional().describe("aws | azure | gcp | ... (default: general)"),
-      diagram_type: z.string().optional().describe("architecture | flowchart | ... (default: architecture)"),
+      diagram_type: z.string().optional().describe("Kind of diagram: architecture | flowchart | ... Leave out to use the server default."),
     },
     annotations: WRITE,
   },

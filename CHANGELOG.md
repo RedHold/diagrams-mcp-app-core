@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.7] - 2026-10
+
+Lets Diagrams pick the kind of diagram. One wording change; the server sends
+the same requests as before.
+
+- **`generate_diagram` no longer says the type defaults to architecture.** That
+  line told calling AIs to fill in `architecture` on every request. The field
+  now says to leave it out so Diagrams can pick the kind of diagram from the
+  prompt, and lists `auto` as a value you can set.
+- **`import_diagram`** drops the same claim. Leaving the type out there uses
+  the server default.
+- A left-out type was already omitted from the request body. A new free test,
+  `scripts/test-diagram-type.mjs` (run in CI), keeps it that way.
+
 ## [1.4.6] — 2026-08
 
 Repairs in-tool connect against the emailed-code login the API moved to in
