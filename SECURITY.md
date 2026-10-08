@@ -10,7 +10,7 @@ Please do not open public GitHub issues for security reports.
 
 - The MCP server runs locally on your machine and connects only to `api.diagrams.so`. It contains no telemetry and sets no cookies; it sends first-party headers identifying the client version.
 - Credentials obtained through `login` are stored at `~/.diagrams-so/credentials.json` with owner-only file permissions. The `DIAGRAMS_API_KEY` environment variable takes precedence when set. Treat both like passwords; revoke a key in the dashboard if it may have been exposed (revocation is immediate).
-- Test-mode keys (`dgz_test_`) spend the real Credit balance of the account. A leaked test key deserves the same urgency as a leaked live key.
+- Test-mode keys (`dgz_test_`) are **not** a sandbox: they read and write the same real account — creating, editing and deleting real diagrams — and run real AI calls. The only difference is a lower rate limit (20 requests/minute instead of 60) and `livemode: false` on the ledger rows, so a leaked test key deserves exactly the same urgency as a leaked live key.
 
 ## Supported versions
 

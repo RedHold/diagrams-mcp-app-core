@@ -12,8 +12,8 @@ import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 
 export const BASE = (process.env.DIAGRAMS_API_BASE || "https://api.diagrams.so/api/v2").replace(/\/+$/, "");
-// Identify this client so the API attributes charges to source="mcp" in the
-// credit-consumption history (X-Diagrams-Client wins; User-Agent is a fallback).
+// Identify this client so the API attributes calls to source="mcp" in the
+// per-task cost history (X-Diagrams-Client wins; User-Agent is a fallback).
 export const CLIENT_ID = "mcp/1.4.6";
 export const USER_AGENT = "@diagrams-so/mcp/1.4.6";
 // Safety-net timeout so a hung/slow API surfaces a clean tool error instead of
@@ -394,14 +394,16 @@ export async function apiRequest<T = any>(
     } else {
       message = (await res.text().catch(() => "")) || message;
     }
-    // Actionable auth/billing mappings (the raw server text is less useful to
-    // an agent than the fix):
+    // Actionable auth mappings (the raw server text is less useful to an agent
+    // than the fix):
     if (res.status === 401) {
       message = "Session credential expired or revoked — run `npx @diagrams-so/mcp login` again.";
     } else if (res.status === 402) {
       const upgradeUrl =
         j?.error?.upgrade_url ?? j?.error?.details?.upgrade_url ?? j?.upgrade_url ?? "https://diagrams.so/billing";
-      message = `Out of credits — free credits are one-time. Top up ($5 for 25) or upgrade: ${upgradeUrl}`;
+      message =
+        `Unexpected QUOTA_EXCEEDED (402) — generation is unlimited on every plan, so this should not ` +
+        `happen. Retry; if it keeps happening please report it. Billing page, if you need it: ${upgradeUrl}`;
     }
     throw new ApiError(code, message, res.status, requestId);
   }
@@ -449,7 +451,7 @@ const TOTAL_BUDGET_MS = Math.max(
   Number(process.env.DIAGRAMS_API_TOTAL_BUDGET_MS) || 600_000,
 );
 
-/** POST a billable call with a fresh Idempotency-Key and bounded same-key
+/** POST an AI call with a fresh Idempotency-Key and bounded same-key
  * retries on ambiguous failures. Definite rejections (401/402/404/422 …) are
  * never retried. On final ambiguous failure the caller should record an
  * unknown-outcome tally entry and tell the user to check get_usage_history. */
@@ -485,7 +487,8 @@ export async function apiRequestBillable<T = any>(
   throw lastErr;
 }
 
-/** The `usage` object every billable endpoint returns. */
+/** The `usage` object every AI endpoint returns. `credits_charged` is the real
+ * internal cost of the call — what it cost us to run, not a bill. */
 export interface Usage {
   credits_charged: number;
   credits_remaining: number;
@@ -494,10 +497,10 @@ export interface Usage {
 
 export function usageLine(usage?: Usage | null): string {
   if (!usage) return "";
-  return `\nCredits: ${usage.credits_charged} charged · ${usage.credits_remaining} remaining (${usage.tier ?? "?"}).`;
+  return `\nCost to run: ${usage.credits_charged} (${usage.tier ?? "?"} tier) — internal figure only; generation is unlimited on your plan.`;
 }
 
-/** In-process tally of what each billable task charged this MCP session, so the
+/** In-process tally of what each AI task cost to run this MCP session, so the
  * agent can answer "how much did each task cost?" instantly (get_usage_history
  * gives the durable, cross-session record).
  *
@@ -515,7 +518,7 @@ export interface SessionCharge {
 }
 export const sessionCharges: SessionCharge[] = [];
 
-/** Record a billable task's charge from its response `usage` block. */
+/** Record an AI task's cost figure from its response `usage` block. */
 export function recordCharge<T extends { id?: string; usage?: Usage | null }>(action: string, result: T): T {
   const u = result?.usage;
   if (u) {
@@ -530,8 +533,8 @@ export function recordCharge<T extends { id?: string; usage?: Usage | null }>(ac
   return result;
 }
 
-/** Record a billable call whose outcome this process never saw (audit M3):
- * the server may or may not have charged — only the ledger knows. */
+/** Record an AI call whose outcome this process never saw (audit M3):
+ * the work may or may not have run — only the ledger knows. */
 export function recordUnknownCharge(action: string, note?: string): void {
   sessionCharges.push({ action, status: "unknown", note });
 }

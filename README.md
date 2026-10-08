@@ -72,8 +72,10 @@ More things worth asking, once you have a diagram:
 
 > Re-export it as SVG so I can drop it in the README.
 
-Each reply carries the credit cost and your remaining balance. Generating, editing, fixing and
-re-laying-out spend credits; reading, warnings and **every export** are free.
+**Nothing you ask for is metered.** Generation is unlimited on both plans — Free ($0) and Paid
+($20/month, or $100/year) — and the per-minute rate limit is the only ceiling. Each reply still
+carries the internal cost figure for the call, so you can see what it cost to run. The Paid plan
+adds exactly two things: exports without a watermark, and `.drawio` export.
 
 The `.drawio` file the assistant saves opens at [app.diagrams.net](https://app.diagrams.net) or
 in the desktop app, fully editable — it is real draw.io XML, not a picture.
@@ -85,38 +87,38 @@ the same thing as a web page: type the prompt in the box. No install, no `login`
 
 **Create & change (mutating)**
 
-| Tool | What it does | Cost |
+| Tool | What it does | Runs the model? |
 |---|---|---|
-| `generate_diagram` | Create a diagram from a prompt → id + draw.io XML + warnings + score | credits |
-| `edit_diagram` | Apply a natural-language change (new version) | credits |
-| `fix_warning` | Resolve one Well-Architected warning | credits |
-| `relayout_diagram` | AI re-arrange the layout (async; first 2/diagram free, then confirm) | credits* |
-| `import_diagram` | Import existing draw.io XML as a new diagram | free |
-| `update_diagram` | Rename / change visibility / replace XML | free |
-| `revert_diagram` | Revert to an earlier version | free |
-| `delete_diagram` | Soft-delete a diagram (destructive) | free |
-| `fork_template` | Copy a public/library diagram into your account (private) | free |
+| `generate_diagram` | Create a diagram from a prompt → id + draw.io XML + warnings + score | yes |
+| `edit_diagram` | Apply a natural-language change (new version) | yes |
+| `fix_warning` | Resolve one Well-Architected warning | yes |
+| `relayout_diagram` | AI re-arrange the layout (async; asks for `confirm=true` first) | yes |
+| `import_diagram` | Import existing draw.io XML as a new diagram | no |
+| `update_diagram` | Rename / change visibility / replace XML | no |
+| `revert_diagram` | Revert to an earlier version | no |
+| `delete_diagram` | Soft-delete a diagram (destructive) | no |
+| `fork_template` | Copy a public/library diagram into your account (private) | no |
 
-**Read (free)**
+**Read**
 
 | Tool | What it does |
 |---|---|
 | `get_diagram` | Fetch a diagram's XML + score |
 | `list_diagrams` | List your diagrams (cursor-paginated) |
 | `get_warnings` | Well-Architected findings for a diagram |
-| `export_diagram` | Raw `drawio` or `svg` file (free on every plan; free-plan SVG is watermarked) |
+| `export_diagram` | Raw `drawio` or `svg` file. `drawio` needs the Paid plan (Free gets `403 UPGRADE_REQUIRED`); `svg` works on both and is watermarked on Free |
 | `list_versions` | Version history (with `is_current`) |
 | `get_version` | A specific version's XML + score |
 | `get_relayout_status` | Poll an async re-layout job |
 | `search_gallery` | Search public community + curated library diagrams |
 | `enhance_prompt` | Turn a rough idea into a detailed prompt |
 | `clarify_prompt` | Get clarifying questions for a vague prompt |
-| `get_usage` | Plan + credits + cost estimates |
-| `get_usage_history` | Itemized credit ledger per task (action, credits, diagram, surface) with filters + a live session tally |
+| `get_usage` | Plan + limits (unlimited) + per-action cost estimates |
+| `get_usage_history` | Itemized cost ledger per task (action, cost figure, diagram, surface) with filters + a live session tally |
 | `whoami` | Account, plan, scopes, live/test mode |
 | `list_capabilities` | Valid diagram types / providers / export formats |
 
-Reads and exports are free; `generate` / `edit` / `fix` / `relayout` cost credits, and `delete` is destructive. `relayout` asks for `confirm=true` before it charges.
+Nothing here is metered. `generate` / `edit` / `fix` / `relayout` run an AI model, so they take seconds rather than milliseconds; `delete` is destructive; and `relayout` asks for `confirm=true` before it rewrites the layout.
 
 ## CLI
 
@@ -206,8 +208,8 @@ Runs the full flow (connect → list tools → whoami → generate → warnings 
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| **CI** (`ci.yml`) | every push / PR | `npm ci` + `npm run build` on Node 18/20/22, then a **free** smoke (`scripts/ci-smoke.mjs`) that launches the built server and asserts all 23 tools register. **No API calls, no credits.** |
-| **Live smoke** (`live-smoke.yml`) | nightly + manual | the full end-to-end flow (`test-smoke.mjs`) against the real API. **Spends credits** — runs only when the `DIAGRAMS_API_KEY` secret is set. |
+| **CI** (`ci.yml`) | every push / PR | `npm ci` + `npm run build` on Node 18/20/22, then an offline smoke (`scripts/ci-smoke.mjs`) that launches the built server and asserts all 23 tools register. **No API calls, no account.** |
+| **Live smoke** (`live-smoke.yml`) | nightly + manual | the full end-to-end flow (`test-smoke.mjs`) against the real API. **Creates and deletes real diagrams in a real account** — runs only when the `DIAGRAMS_API_KEY` secret is set. |
 | **Release** (`release.yml`) | tag `vX.Y.Z` | build → `npm prune --omit=dev` → pack `diagrams-so.mcpb` → attach to a GitHub Release. Publishes to npm too if an `NPM_TOKEN` secret is set. |
 
 **Cut a release:**
@@ -237,7 +239,7 @@ Only needed if you are changing the server itself. Users should install from npm
 git clone https://github.com/RedHold/diagrams-mcp-app-core.git
 cd diagrams-mcp-app-core
 npm install                  # installs deps and builds dist/ via the prepare hook
-node scripts/ci-smoke.mjs    # all 23 tools register; no API calls, no credits
+node scripts/ci-smoke.mjs    # all 23 tools register; no API calls, no account
 
 # point a client at your working copy
 claude mcp add diagrams-so-dev -- node "$(pwd)/dist/index.js"
@@ -251,6 +253,6 @@ npm run build && npx @anthropic-ai/mcpb pack
 - **Code:** [Apache-2.0](./LICENSE). See [NOTICE](./NOTICE).
 - **Service:** this server is a client for the Diagrams.so API. Use of the API is governed by the [Terms of Service](https://diagrams.so/policy/terms) and [Acceptable Use Policy](https://diagrams.so/policy/acceptable-use); the code license grants no rights to the API itself.
 - **Privacy:** the server runs locally, connects only to `api.diagrams.so`, and contains no telemetry. Credentials from `login` are stored at `~/.diagrams-so/credentials.json` with owner-only permissions. See the [Privacy Policy](https://diagrams.so/policy/privacy).
-- **Billing:** generate, edit, fix, re-layout, and fork operations cost credits; reads and exports are free. Test-mode keys bill your real credit balance.
+- **Plans:** generation is unlimited on both the Free ($0) and Paid ($20/month, $100/year) plans — nothing this server calls is metered. The Paid plan adds exactly two things: exports without a watermark, and `.drawio` export (`export_diagram` with `format: "drawio"` answers `403 UPGRADE_REQUIRED` on Free). Test-mode keys (`dgz_test_`) are not a sandbox — they act on the real account, at a lower rate limit.
 - **Trademarks:** Diagrams.so and the Diagrams.so logo are trademarks of RedHold LLC. This license does not grant permission to use them, except to accurately describe the package's origin. See the [Trademark Policy](https://diagrams.so/policy/trademark).
 - **Security:** report vulnerabilities to security@diagrams.so per [SECURITY.md](./SECURITY.md).

@@ -6,7 +6,7 @@
 //   1. Happy-path `login` end-to-end: user code + verification URL printed,
 //      polling rides out authorization_pending, and the credential cache is
 //      written atomically with dir 0700 / file 0600 and the exact JSON shape.
-//   2. `login --test` warns that test keys charge like live, requests
+//   2. `login --test` warns that test keys are not a sandbox, requests
 //      livemode:false, and stores expires_at:null when no expires_in returns.
 //   3. slow_down is honored (poll interval grows by 5s).
 //   4. access_denied / expired_token / key_limit_reached exit 1 with their
@@ -15,7 +15,7 @@
 //      MCP server); the cache is used when no env var is set.
 //   6. A corrupt cache and a base_url-mismatched cache are treated as absent
 //      (server returns the actionable not-connected message, never crashes).
-//   7. 402 maps to the out-of-credits wording with the upgrade_url; 401 maps
+//   7. 402 maps to the unexpected-quota wording with the upgrade_url; 401 maps
 //      to the run-login-again wording.
 //
 // Run: node scripts/test-device-login.mjs   (after npm run build)
@@ -75,11 +75,11 @@ const stub = createServer((req, res) => {
       });
     }
     if (req.method === "GET" && url === "/api/v2/usage") {
-      return send(200, { plan: "free", credits_remaining: 40 });
+      return send(200, { plan: "free", credits_remaining: -1 });
     }
     if (req.method === "POST" && url === "/api/v2/diagrams") {
       return send(402, {
-        error: { code: "QUOTA_EXCEEDED", message: "You are out of credits.", upgrade_url: "https://diagrams.so/upgrade?src=mcp" },
+        error: { code: "QUOTA_EXCEEDED", message: "Quota exceeded.", upgrade_url: "https://diagrams.so/upgrade?src=mcp" },
       });
     }
     return send(404, { error: { code: "NOT_FOUND", message: url } });
@@ -157,7 +157,7 @@ beginScenario(DEVICE_CODE(), [
   assert(r.code === 0, `login exits 0 (got ${r.code})`);
   assert(r.out.includes("ABCD-EFGH"), "user_code printed");
   assert(r.out.includes(`${base}/activate?user_code=ABCD-EFGH`), "verification_uri_complete printed");
-  assert(r.out.includes("Connected as dgz_live_tokA@stub (live). ~40 credits left."), `connected line printed:\n${r.all}`);
+  assert(r.out.includes("Connected as dgz_live_tokA@stub (live). Generation is unlimited on your plan."), `connected line printed:\n${r.all}`);
   const dc = state.deviceCodeBodies[0] || {};
   assert(dc.client_id === "mcp" && dc.livemode === true && !!dc.device_name, "device/code body: client_id=mcp, livemode=true, device_name set");
   assert(state.tokenTimes.length === 2 && state.tokenTimes[1] - state.tokenTimes[0] < 2000, "authorization_pending polled again promptly");
@@ -194,7 +194,7 @@ beginScenario(DEVICE_CODE(), [
   const r = await runCli(["login", "--test", "--base-url", base], envFor(homeB));
   assert(r.code === 0, "login --test exits 0");
   assert(
-    r.out.includes("Test keys charge the same credits as live — not a free sandbox (lower rate limits only)."),
+    r.out.includes("Test keys are not a sandbox"),
     "test-mode warning printed",
   );
   assert(state.deviceCodeBodies[0]?.livemode === false, "device/code requested livemode:false");
@@ -360,8 +360,9 @@ await withMcp(envFor(freshHome(), { DIAGRAMS_API_KEY: "dgz_live_envkey", DIAGRAM
   const r = await call("generate_diagram", { prompt: "anything" });
   assert(
     r.isError &&
-      r.text.includes("Out of credits — free credits are one-time. Top up ($5 for 25) or upgrade: https://diagrams.so/upgrade?src=mcp"),
-    "402 QUOTA_EXCEEDED maps to the out-of-credits wording with upgrade_url",
+      r.text.includes("Unexpected QUOTA_EXCEEDED (402)") &&
+      r.text.includes("https://diagrams.so/upgrade?src=mcp"),
+    "402 QUOTA_EXCEEDED maps to the unexpected-quota wording with upgrade_url",
   );
 });
 await withMcp(envFor(freshHome(), { DIAGRAMS_API_KEY: "dgz_revoked", DIAGRAMS_API_BASE: base }), async (call) => {
