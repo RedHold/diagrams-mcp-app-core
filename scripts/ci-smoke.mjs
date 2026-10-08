@@ -1,9 +1,9 @@
-// CI smoke — free, deterministic, no network. Spawns the BUILT stdio server,
+// CI smoke — offline, deterministic, no network. Spawns the BUILT stdio server,
 // completes the MCP handshake, and asserts that every expected tool registers.
 // Makes ZERO calls to the Diagrams.so API, so it needs no real key and spends
-// no credits — it purely guards against build / tool-registration regressions.
+// no account — it purely guards against build / tool-registration regressions.
 // (The full flow against the live API lives in test-smoke.mjs / the live-smoke
-// workflow, which does spend credits and needs a real DIAGRAMS_API_KEY secret.)
+// workflow, which writes real data and needs a real DIAGRAMS_API_KEY secret.)
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
@@ -19,7 +19,7 @@ const EXPECTED = [
 const fail = (msg) => { console.error(`✗ ${msg}`); process.exit(1); };
 
 // Dummy key — the server never calls the API during handshake/listTools, so no
-// real credentials are needed and nothing is billed.
+// real credentials are needed and nothing is touched.
 const transport = new StdioClientTransport({
   command: "node",
   args: ["dist/index.js"],

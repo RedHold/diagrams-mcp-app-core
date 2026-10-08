@@ -39,7 +39,9 @@ const server = new McpServer(
       "Generate, edit, and manage cloud architecture diagrams via Diagrams.so. " +
       "Typical flow: generate_diagram → (get_warnings → fix_warning | edit_diagram) → export_diagram. " +
       "Every diagram has an `id` — pass it between tools. Diagrams are output as draw.io XML " +
-      "(open at app.diagrams.net) or SVG. Generation/edit/fix/re-layout cost credits; reads are free. " +
+      "(open at app.diagrams.net) or SVG. Generation is unlimited on every plan — nothing is metered; " +
+      "generate/edit/fix/re-layout run an AI model, so they take seconds rather than milliseconds. " +
+      "`.drawio` export needs the Paid plan; `svg` works on every plan and is watermarked on Free. " +
       "Use list_capabilities to discover valid diagram types / providers / formats before generating.",
   },
 );
@@ -72,19 +74,19 @@ const fail = (e: unknown): ToolResult => {
   return { content: [{ type: "text", text: msg }], isError: true };
 };
 
-/** Failure handler for BILLABLE tools (audit M2/M3). If the outcome is
- * ambiguous — even after the same-key retries — the server may have completed
- * and charged the call. Record it as an unknown charge and steer the agent to
- * the ledger instead of a blind (double-billing) retry. */
+/** Failure handler for the AI tools (audit M2/M3). If the outcome is ambiguous
+ * — even after the same-key retries — the server may have completed the call
+ * anyway. Record it as an unknown outcome and steer the agent to the ledger
+ * instead of a blind retry that would make a second diagram. */
 const failBillable = (e: unknown, action: string): ToolResult => {
   const base = fail(e);
   if (isAmbiguous(e)) {
     recordUnknownCharge(action, (e as ApiError)?.code);
     base.content[0].text +=
-      `\n\nIMPORTANT: this ${action} may still have completed AND been charged server-side ` +
+      `\n\nIMPORTANT: this ${action} may still have completed server-side ` +
       `(the response was lost, not necessarily the work). Before retrying, call ` +
       `get_usage_history (and list_diagrams) to check whether the task already exists — ` +
-      `a blind retry can create a second diagram and a second charge.`;
+      `a blind retry can create a second diagram.`;
   }
   return base;
 };
@@ -97,7 +99,7 @@ const warningsText = (warnings?: { type: string; component?: string | null; mess
   );
 };
 
-// Opinionated-mode improvement suggestions (paid) — advisory, not scored.
+// Opinionated-mode improvement suggestions — advisory, not scored.
 const suggestionsText = (suggestions?: { component?: string | null; message: string }[]): string => {
   if (!suggestions?.length) return "";
   return (
@@ -135,7 +137,7 @@ async function withHeartbeat<T>(extra: any, message: string, fn: () => Promise<T
 }
 
 // ---------------------------------------------------------------------------
-// Generate / edit / fix / relayout  (billable, mutating)
+// Generate / edit / fix / relayout  (AI calls, mutating)
 // ---------------------------------------------------------------------------
 
 registerTool(
@@ -144,12 +146,13 @@ registerTool(
     title: "Generate a diagram",
     description:
       "Create a new cloud architecture diagram from a natural-language prompt. Returns the diagram id, " +
-      "its draw.io XML, Well-Architected warnings, score, and credits used. Costs credits.",
+      "its draw.io XML, Well-Architected warnings, score, and what the call cost to run. Runs the AI model; " +
+      "generation is unlimited on every plan.",
     inputSchema: {
       prompt: z.string().min(1).describe("What to draw, e.g. 'AWS 3-tier web app with ALB, EC2 Auto Scaling and RDS Multi-AZ'"),
       cloud_provider: z.string().optional().describe("aws | azure | gcp | kubernetes | oci | general (default: general)"),
       diagram_type: z.string().optional().describe("architecture | flowchart | sequence | data_pipeline | ... (default: architecture)"),
-      opinionated: z.boolean().optional().describe("Apply best-practice hardening suggestions during generation (paid plans only)."),
+      opinionated: z.boolean().optional().describe("Apply best-practice hardening suggestions during generation."),
     },
     annotations: WRITE,
   },
@@ -177,7 +180,7 @@ registerTool(
     title: "Edit a diagram",
     description:
       "Apply a natural-language change to an existing diagram (e.g. 'add a Redis cache'). Creates a new " +
-      "version and returns the updated XML. Costs credits. Confirm with the user before calling — it mutates the diagram.",
+      "version and returns the updated XML. Runs the AI model. Confirm with the user before calling — it mutates the diagram.",
     inputSchema: {
       diagram_id: z.string().describe("The id returned by generate_diagram / list_diagrams"),
       edit_prompt: z.string().min(3).describe("The change to make, in plain language"),
@@ -201,7 +204,7 @@ registerTool(
     title: "Fix one warning",
     description:
       "Resolve a single Well-Architected warning (from get_warnings), leaving the rest of the diagram " +
-      "untouched. Creates a new version. Costs credits.",
+      "untouched. Creates a new version. Runs the AI model.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       message: z.string().min(3).describe("The warning's `message` (as returned by get_warnings)"),
@@ -227,12 +230,12 @@ registerTool(
     title: "Re-arrange layout with AI",
     description:
       "Automatically re-arrange a diagram's layout for readability (async). Starts the job and waits for it " +
-      "to finish, returning the re-laid XML + fresh warnings/score. Every re-layout costs credits based on " +
-      "the tokens it uses (like edit/fix) and requires confirm=true. If the job is still running when the " +
+      "to finish, returning the re-laid XML + fresh warnings/score. Every re-layout runs the AI model over the " +
+      "whole diagram (like edit/fix), so it requires confirm=true first. If the job is still running when the " +
       "wait elapses, returns a job_id you can poll with get_relayout_status.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
-      confirm: z.boolean().optional().describe("Consent to the token-based charge (required to start)."),
+      confirm: z.boolean().optional().describe("Consent to re-laying out the whole diagram (required to start)."),
     },
     annotations: WRITE,
   },
@@ -240,11 +243,11 @@ registerTool(
     try {
       return await withHeartbeat(extra, "Re-laying out…", async () => {
         const id = encodeURIComponent(diagram_id);
-        // Billable wrapper (audit M2/M3): the server dedupes by pending job per
+        // Idempotent wrapper (audit M2/M3): the server dedupes by pending job per
         // diagram, so an ambiguous-failure retry of the START call is safe — it
         // returns the already-running job instead of spawning a second one.
         const start = await apiRequestBillable("POST", `/diagrams/${id}/relayout`, { query: { confirm } });
-        // Confirm gate: chargeable re-layout requested without confirm=true.
+        // Confirm gate: re-layout requested without confirm=true.
         if (start?.status === "confirmation_required") {
           return ok(`${start.message}\n\nRe-run relayout_diagram with confirm=true to proceed.`);
         }
@@ -259,8 +262,8 @@ registerTool(
           last = await apiRequest("GET", `/diagrams/${id}/relayout/${encodeURIComponent(jobId)}`);
           if (last.status === "done") {
             if (last.applied) {
-              // Audit M3: chargeable re-layouts bill asynchronously and the status
-              // payload carries no usage block, so the exact charge is only in the
+              // Audit M3: a re-layout's cost is recorded asynchronously and the status
+              // payload carries no usage block, so the exact figure is only in the
               // ledger — record it as unknown instead of silently omitting it.
               // `chargeable` comes from the START response (the server's verdict) —
               // as of the 2026-08-01 product change every re-layout is chargeable,
@@ -268,7 +271,7 @@ registerTool(
               if (start?.chargeable) {
                 recordUnknownCharge(
                   "relayout",
-                  "chargeable re-layout applied; exact credits are in get_usage_history",
+                  "re-layout applied; its exact cost figure is in get_usage_history",
                 );
               }
               return ok(
@@ -284,12 +287,12 @@ registerTool(
             return fail(new ApiError("RELAYOUT_FAILED", last.reason || "The re-layout job failed.", 0));
           }
         }
-        // Wait budget elapsed: a chargeable job may still complete (and bill)
-        // after we stop watching — record the unknown outcome now.
+        // Wait budget elapsed: the job may still complete after we stop watching
+        // — record the unknown outcome now.
         if (start?.chargeable) {
           recordUnknownCharge(
             "relayout",
-            "chargeable re-layout still running when the wait elapsed; check get_usage_history",
+            "re-layout still running when the wait elapsed; check get_usage_history",
           );
         }
         return ok(
@@ -313,7 +316,7 @@ registerTool(
     title: "Import a diagram",
     description:
       "Import an existing draw.io (mxGraphModel/mxfile) XML document as a new diagram in your account. " +
-      "Validated and sanitized. Free (no AI).",
+      "Validated and sanitized. No AI call.",
     inputSchema: {
       xml: z.string().min(1).describe("draw.io mxGraphModel/mxfile XML"),
       title: z.string().optional().describe("Optional title (derived if omitted)"),
@@ -337,12 +340,12 @@ registerTool(
   {
     title: "Update a diagram",
     description:
-      "Update a diagram's metadata or XML: rename it, change visibility (public/private — paid plans for private), " +
-      "or replace its XML. Pass only the fields you want to change. Free (no AI).",
+      "Update a diagram's metadata or XML: rename it, change visibility (public/private), " +
+      "or replace its XML. Pass only the fields you want to change. No AI call.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       title: z.string().max(200).optional().describe("New title"),
-      is_public: z.boolean().optional().describe("true = public in the gallery, false = private (paid)"),
+      is_public: z.boolean().optional().describe("true = public in the gallery, false = private"),
       xml: z.string().optional().describe("Replace the diagram XML (validated + sanitized)"),
     },
     annotations: WRITE,
@@ -388,7 +391,7 @@ registerTool(
     title: "Revert to a version",
     description:
       "Revert a diagram to an earlier version (from list_versions). Pass either version_id or version_number. " +
-      "Free (no AI).",
+      "No AI call.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       version_id: z.string().optional().describe("The version's id (from list_versions)"),
@@ -472,7 +475,7 @@ registerTool(
   "get_warnings",
   {
     title: "Get Well-Architected warnings",
-    description: "List the Well-Architected findings for a diagram (each has type, component, message). Free.",
+    description: "List the Well-Architected findings for a diagram (each has type, component, message). Read-only.",
     inputSchema: { diagram_id: z.string().describe("The diagram id") },
     annotations: READ,
   },
@@ -496,7 +499,8 @@ registerTool(
     title: "Export a diagram",
     description:
       "Export a diagram as a raw file: `drawio` (open at app.diagrams.net) or `svg`. Returns the file content directly. " +
-      "Exports are free on every plan. Free-plan SVG exports carry a watermark.",
+      "`drawio` needs the Paid plan and answers 403 UPGRADE_REQUIRED on Free; `svg` works on every plan and carries a " +
+      "watermark on Free.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       format: z.enum(["drawio", "svg"]).default("drawio").describe("drawio or svg"),
@@ -554,7 +558,7 @@ registerTool(
   "get_version",
   {
     title: "Get a diagram version",
-    description: "Fetch a specific version's XML + Well-Architected score (e.g. to inspect before reverting). Free.",
+    description: "Fetch a specific version's XML + Well-Architected score (e.g. to inspect before reverting). Read-only.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       version_id: z.string().describe("The version id (from list_versions)"),
@@ -585,7 +589,7 @@ registerTool(
     title: "Poll a re-layout job",
     description:
       "Check the status of an async re-layout job started by relayout_diagram. Returns pending/done/failed; " +
-      "when done+applied it includes the re-laid XML + fresh warnings/score. Free.",
+      "when done+applied it includes the re-laid XML + fresh warnings/score. Read-only.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       job_id: z.string().describe("The job_id returned by relayout_diagram"),
@@ -684,7 +688,7 @@ registerTool(
   "enhance_prompt",
   {
     title: "Enhance a prompt",
-    description: "Turn a rough idea into a detailed generation prompt. Free.",
+    description: "Turn a rough idea into a detailed generation prompt. Runs a small AI call; nothing is metered.",
     inputSchema: {
       prompt: z.string().min(5).describe("Your rough prompt"),
       cloud_provider: z.string().optional().describe("aws | azure | gcp | kubernetes | oci | general — biases the enhanced prompt toward that provider's services"),
@@ -706,7 +710,7 @@ registerTool(
   "clarify_prompt",
   {
     title: "Clarify a vague prompt",
-    description: "Get 1–3 clarifying questions (and a suggested diagram type) for a vague prompt, before generating. Free.",
+    description: "Get 1–3 clarifying questions (and a suggested diagram type) for a vague prompt, before generating. Runs a small AI call; nothing is metered.",
     inputSchema: { prompt: z.string().min(1).describe("Your prompt") },
     annotations: READ,
   },
@@ -728,8 +732,10 @@ registerTool(
 registerTool(
   "get_usage",
   {
-    title: "Get usage & credits",
-    description: "Show your current plan, credits remaining, and per-action cost estimates. Free.",
+    title: "Get usage & plan",
+    description:
+      "Show your current plan and the per-action cost estimates. Generation is unlimited on every plan, so there " +
+      "is no balance and no quota to run out of. Read-only.",
     inputSchema: {},
     annotations: READ,
   },
@@ -746,11 +752,12 @@ registerTool(
 registerTool(
   "get_usage_history",
   {
-    title: "Credit consumption history",
+    title: "Task cost history",
     description:
-      "List how much credit each past task (generate/edit/fix/relayout) charged — newest first, with the " +
-      "diagram it touched and the surface (api/sdk/mcp) that ran it. Use this to answer 'how much did each " +
-      "task cost?'. Also shows a running tally of tasks performed in THIS session. Free (read-only).",
+      "List what each past task (generate/edit/fix/relayout) cost to run — newest first, with the " +
+      "diagram it touched and the surface (api/sdk/mcp) that ran it. These are internal cost figures, not a " +
+      "bill: nothing is metered. Use this to answer 'how much did each task cost?'. Also shows a running " +
+      "tally of tasks performed in THIS session. Read-only.",
     inputSchema: {
       limit: z.number().int().min(1).max(100).optional().describe("Max rows to return (default 20)."),
       cursor: z.string().optional().describe("Pagination cursor from a previous call's next_cursor."),
@@ -770,12 +777,12 @@ registerTool(
       const lines = (page.items ?? []).map(
         (i: any) =>
           `• ${new Date(i.created_at).toISOString()}  ${i.action_type.padEnd(8)} ` +
-          `${String(i.credits_charged).padStart(4)} cr  [${i.source ?? "—"}]` +
+          `${String(i.credits_charged).padStart(4)} u   [${i.source ?? "—"}]` +
           (i.diagram_id ? `  diagram ${i.diagram_id}` : ""),
       );
       const s = page.summary ?? { total_credits_charged: 0, task_count: 0 };
       let out =
-        `Credit consumption — ${s.task_count} task(s), ${s.total_credits_charged} credit(s) total` +
+        `Cost to run — ${s.task_count} task(s), ${s.total_credits_charged} unit(s) total (internal figures; nothing is billed)` +
         (action || source ? " (filtered)" : "") +
         `:\n${lines.join("\n") || "  (no tasks yet)"}`;
       if (page.has_more) out += `\n\nMore available — call again with cursor="${page.next_cursor}".`;
@@ -783,20 +790,20 @@ registerTool(
         // Audit M3: label the two scopes honestly. The ledger above is the
         // authoritative record (server-side, filter-scoped); the tally below is
         // only what THIS process saw — confirmed responses plus calls whose
-        // outcome was lost (which may still have been charged).
+        // outcome was lost (which may still have run).
         const confirmed = sessionCharges.filter((c) => c.status === "confirmed");
         const unknown = sessionCharges.filter((c) => c.status === "unknown");
         const sess = sessionCharges
           .map((c) =>
             c.status === "confirmed"
-              ? `  • ${c.action}: ${c.creditsCharged} cr${c.diagramId ? ` (${c.diagramId})` : ""}`
-              : `  • ${c.action}: UNKNOWN — call failed mid-flight (${c.note ?? "no response"}); may still have been charged`,
+              ? `  • ${c.action}: ${c.creditsCharged} u${c.diagramId ? ` (${c.diagramId})` : ""}`
+              : `  • ${c.action}: UNKNOWN — call failed mid-flight (${c.note ?? "no response"}); may still have run`,
           )
           .join("\n");
         const sessTotal = confirmed.reduce((a, c) => a + (c.creditsCharged ?? 0), 0);
         out +=
           `\n\nThis session (this process only — the ledger above is authoritative): ` +
-          `${sessTotal} credit(s) confirmed across ${confirmed.length} task(s)` +
+          `${sessTotal} unit(s) of cost confirmed across ${confirmed.length} task(s)` +
           (unknown.length ? ` + ${unknown.length} call(s) with unknown outcome` : "") +
           `:\n${sess}`;
       }
@@ -811,7 +818,7 @@ registerTool(
   "whoami",
   {
     title: "Who am I",
-    description: "Show the account, plan, scopes, and live/test mode of the configured API key. Free.",
+    description: "Show the account, plan, scopes, and live/test mode of the configured API key. Read-only.",
     inputSchema: {},
     annotations: READ,
   },
@@ -833,7 +840,7 @@ registerTool(
     title: "List capabilities",
     description:
       "Discover the valid diagram types, cloud providers, and export formats the API supports — so you pass valid " +
-      "values to generate_diagram / export_diagram. Free.",
+      "values to generate_diagram / export_diagram. Read-only.",
     inputSchema: {},
     annotations: READ,
   },

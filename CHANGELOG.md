@@ -1,5 +1,41 @@
 # Changelog
 
+## [Unreleased]
+Pricing collapsed to two plans and credits removed. Wording only, plus two small
+behaviour corrections noted below — **no tool was renamed, added or removed, and no
+response shape changed**.
+
+- **There are no credits.** Generation is unlimited on both plans: Free ($0) and
+  Paid ($20/month, or $100/year). Nothing this server calls is metered, there is no
+  balance, and nobody runs out — the per-minute rate limit is the only ceiling.
+  Every tool description that said a tool "costs credits" now says it runs the AI
+  model; the "Free." markers on the read tools now say "Read-only.".
+- **Paid adds exactly two things:** exports without a watermark, and `.drawio`
+  export. `export_diagram` with `format: "drawio"` answers `403 UPGRADE_REQUIRED` on
+  Free; `svg` works on both and is watermarked on Free. `export_diagram`, the server
+  instructions and the README now say so instead of claiming exports are free on
+  every plan.
+- **Corrected two feature claims that were never plan-gated the way we said.**
+  `generate_diagram`'s `opinionated` flag no longer claims "paid plans only", and
+  `update_diagram`'s `is_public: false` no longer claims private diagrams are paid.
+  Both are available on every plan.
+- **Dropped the "~N credits left" line** from `login` / `whoami`. There is no balance
+  to report, so `accountLine` no longer calls `/usage` at all: it prints
+  `Connected as <email> (<mode>). Generation is unlimited on your plan.`
+- **The 402 message is no longer a sales pitch.** `402 QUOTA_EXCEEDED` is still a
+  documented code and the handler is unchanged, but it should never fire now, so the
+  message says that instead of "Out of credits — free credits are one-time. Top up
+  ($5 for 25)". Credit packs do not exist.
+- **Test-key guidance corrected.** The old warning — "test keys charge the same
+  credits as live" — only made sense when there was a balance to draw. The real
+  caution is that a `dgz_test_` key is *not* a sandbox: it reads and writes the same
+  real account (real diagrams created, edited and deleted; real AI calls) at a lower
+  rate limit (20 requests/minute instead of 60), with `livemode: false` on the ledger
+  rows.
+- `get_usage_history` still reports the same numbers from the same endpoint, now
+  labelled as internal cost figures rather than credit consumption. `get_usage` still
+  exists and reports unlimited.
+
 ## [1.4.6] — 2026-08
 
 Repairs in-tool connect against the emailed-code login the API moved to in
