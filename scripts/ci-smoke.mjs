@@ -1,6 +1,6 @@
 // CI smoke — free, deterministic, no network. Spawns the BUILT stdio server,
 // completes the MCP handshake, and asserts that every expected tool registers.
-// Makes ZERO calls to the Diagrams.so API, so it needs no real key — it
+// Makes ZERO calls to the Diagrams.so API, so it needs no real key; it
 // purely guards against build / tool-registration regressions.
 // (The full flow against the live API lives in test-smoke.mjs / the live-smoke
 // workflow, which calls the real API and needs a real DIAGRAMS_API_KEY secret.)

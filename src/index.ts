@@ -778,7 +778,7 @@ registerTool(
       );
       const s = page.summary ?? { task_count: 0 };
       let out =
-        `Task history — ${s.task_count} task(s)` +
+        `Task history: ${s.task_count} task(s)` +
         (action || source ? " (filtered)" : "") +
         `:\n${lines.join("\n") || "  (no tasks yet)"}`;
       if (page.has_more) out += `\n\nMore available — call again with cursor="${page.next_cursor}".`;

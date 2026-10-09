@@ -207,7 +207,7 @@ Runs the full flow (connect → list tools → whoami → generate → warnings 
 | Workflow | Trigger | What it does |
 |---|---|---|
 | **CI** (`ci.yml`) | every push / PR | `npm ci` + `npm run build` on Node 18/20/22, then a **free** smoke (`scripts/ci-smoke.mjs`) that launches the built server and asserts all 23 tools register. **No API calls.** |
-| **Live smoke** (`live-smoke.yml`) | nightly + manual | the full end-to-end flow (`test-smoke.mjs`) against the real API. **Calls the real API** — runs only when the `DIAGRAMS_API_KEY` secret is set. |
+| **Live smoke** (`live-smoke.yml`) | nightly + manual | the full end-to-end flow (`test-smoke.mjs`) against the real API. **Calls the real API**, so it runs only when the `DIAGRAMS_API_KEY` secret is set. |
 | **Release** (`release.yml`) | tag `vX.Y.Z` | build → `npm prune --omit=dev` → pack `diagrams-so.mcpb` → attach to a GitHub Release. Publishes to npm too if an `NPM_TOKEN` secret is set. |
 
 **Cut a release:**

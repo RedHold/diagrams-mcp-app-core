@@ -103,7 +103,7 @@ function openBrowser(url: string): void {
 
 // ---------------------------------------------------------------------------
 // Shared "who is this key" line: email + mode from /me. Every field is
-// optional — print what we can.
+// optional; print what we can.
 // ---------------------------------------------------------------------------
 
 const PAID_PLAN_MSG_FALLBACK =
