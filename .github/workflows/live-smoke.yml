@@ -1,7 +1,7 @@
 name: Live smoke
 
 # Full end-to-end flow against the REAL Diagrams.so API (import → versions →
-# export → generate → edit → fix → relayout → delete). This SPENDS CREDITS, so
+# export → generate → edit → fix → relayout → delete). This calls the REAL API, so
 # it does NOT run on every push — only nightly and on manual dispatch, and only
 # when a DIAGRAMS_API_KEY secret is configured.
 on:
@@ -23,7 +23,7 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - name: Full live smoke (spends credits)
+      - name: Full live smoke (calls the real API)
         env:
           DIAGRAMS_API_KEY: ${{ secrets.DIAGRAMS_API_KEY }}
           # Override via repo variable if you point at a non-prod API.

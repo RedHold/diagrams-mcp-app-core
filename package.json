@@ -1,6 +1,6 @@
 {
   "name": "@diagrams-so/mcp",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "mcpName": "io.github.RedHold/diagrams-so-mcp",
   "description": "MCP server for Diagrams.so \u2014 generate, edit, and manage architecture diagrams from any MCP client (Claude, Cursor).",
   "keywords": [
@@ -48,6 +48,8 @@
     "prepare": "npm run build",
     "smoke": "node test-smoke.mjs",
     "test:idempotency": "node scripts/test-idempotency.mjs",
+    "test:diagram-type": "node scripts/test-diagram-type.mjs",
+    "test:free-xml": "node scripts/test-free-xml.mjs",
     "test:device-login": "node scripts/test-device-login.mjs",
     "test:intool-connect": "node scripts/test-intool-connect.mjs"
   },

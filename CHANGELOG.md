@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.4.7] - 2026-10
+
+Lets Diagrams pick the kind of diagram, and drops the old metering wording.
+Wording changes only; the MCP server sends the same requests as before.
+
+- **`generate_diagram` no longer says the type defaults to architecture.** That
+  line told calling AIs to fill in `architecture` on every request. The field
+  now says to leave it out so Diagrams can pick the kind of diagram from the
+  prompt, and lists `auto` as a value you can set.
+- **`import_diagram`** drops the same claim. Leaving the type out there uses
+  the server default.
+- A left-out type was already omitted from the request body. A new free test,
+  `scripts/test-diagram-type.mjs` (run in CI), keeps it that way.
+- **Unlimited diagrams and edits on every plan.** Tool descriptions,
+  replies, CLI lines and docs no longer talk about a balance or a cost per
+  task. Replies show your plan instead of a balance, and `login` no longer
+  looks up a balance. A 402 now says the task needs the Paid plan (no
+  watermark, draw.io export). The API field names (`credits_charged`,
+  `credits_remaining`) are unchanged so existing code keeps working.
+- **Free plan: watermarked images, not the draw.io file.** The API now
+  leaves `xml` null on the Free plan and sends a link to the watermarked SVG.
+  `generate_diagram`, `edit_diagram`, `fix_warning`, `get_diagram`,
+  `get_version`, `relayout_diagram` and `get_relayout_status` say "Free plan:
+  the editable draw.io file needs the Paid plan" with that link instead of
+  printing an empty diagram, and `export_diagram` with `drawio` on Free hands
+  back the watermarked SVG instead of an error. Paid replies are unchanged. A
+  new stub test, `scripts/test-free-xml.mjs` (run in CI), covers both plans.
+
 ## [1.4.6] — 2026-08
 
 Repairs in-tool connect against the emailed-code login the API moved to in

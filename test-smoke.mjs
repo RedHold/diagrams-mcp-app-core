@@ -1,7 +1,7 @@
 // Smoke test: spawn the built stdio server and drive it via the MCP client SDK.
 // Exercises every tool. Non-LLM lifecycle (import→update→versions→revert→delete)
 // is validated deterministically; billable LLM tools (generate/edit/fix/relayout)
-// are attempted and reported (they need provider keys + credits configured).
+// are attempted and reported (they need provider keys configured).
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
@@ -86,7 +86,7 @@ if (id) {
   await call("export_diagram", { diagram_id: id, format: "drawio" });
 }
 
-console.log("\n-- billable LLM tools (need provider keys + credits) --");
+console.log("\n-- LLM tools (need provider keys) --");
 let genId = id;
 const gen = await call("generate_diagram", { prompt: "aws ec2 web server behind an ALB, mcp-smoke", cloud_provider: "aws" });
 if (!gen.isError) {
@@ -97,7 +97,7 @@ if (!gen.isError) {
   await call("edit_diagram", { diagram_id: genId, edit_prompt: "add an RDS database" });
   await call("relayout_diagram", { diagram_id: genId });
 } else {
-  console.log("  (generate returned an error — provider/credits likely not configured locally; error path OK)");
+  console.log("  (generate returned an error — provider keys likely not configured locally; error path OK)");
 }
 
 // After the billable calls: the ledger should show mcp-attributed rows and the

@@ -2,9 +2,9 @@
   "manifest_version": "0.2",
   "name": "diagrams-so",
   "display_name": "Diagrams.so",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "Generate, edit, and manage cloud architecture diagrams (draw.io / SVG) with AI.",
-  "long_description": "The Diagrams.so MCP server lets Claude generate cloud architecture diagrams from a prompt, review Well-Architected warnings, fix them, edit iteratively, search a public gallery, and export native .drawio / SVG \u2014 all through the Diagrams.so public API. Reads are free; generate/edit/fix cost credits.",
+  "long_description": "The Diagrams.so MCP server lets Claude generate cloud architecture diagrams from a prompt, review Well-Architected warnings, fix them, edit iteratively, search a public gallery, and export SVG (every plan, watermarked on Free) and native .drawio (Paid) \u2014 all through the Diagrams.so public API. Every plan has unlimited diagrams and edits.",
   "author": {
     "name": "RedHold / Diagrams.so"
   },
@@ -47,15 +47,15 @@
   "tools": [
     {
       "name": "generate_diagram",
-      "description": "Create a diagram from a prompt (costs credits)."
+      "description": "Create a diagram from a prompt."
     },
     {
       "name": "edit_diagram",
-      "description": "Apply a natural-language change (costs credits)."
+      "description": "Apply a natural-language change."
     },
     {
       "name": "fix_warning",
-      "description": "Resolve one Well-Architected warning (costs credits)."
+      "description": "Resolve one Well-Architected warning."
     },
     {
       "name": "relayout_diagram",
@@ -83,7 +83,7 @@
     },
     {
       "name": "get_diagram",
-      "description": "Fetch a diagram's XML + score."
+      "description": "Fetch a diagram's score + XML (Paid) or a watermarked image link (Free)."
     },
     {
       "name": "list_diagrams",
@@ -95,7 +95,7 @@
     },
     {
       "name": "export_diagram",
-      "description": "Export a diagram as drawio or svg."
+      "description": "Export a diagram as svg (every plan, watermarked on Free) or drawio (Paid)."
     },
     {
       "name": "list_versions",
@@ -103,7 +103,7 @@
     },
     {
       "name": "get_version",
-      "description": "Fetch a specific version's XML + score."
+      "description": "Fetch a specific version's score + XML (Paid) or a watermarked image link (Free)."
     },
     {
       "name": "get_relayout_status",
@@ -123,11 +123,11 @@
     },
     {
       "name": "get_usage",
-      "description": "Plan, credits, and cost estimates."
+      "description": "Your plan and usage."
     },
     {
       "name": "get_usage_history",
-      "description": "Itemized credit-consumption history per task, with filters (free)."
+      "description": "History of past tasks, with filters (free)."
     },
     {
       "name": "whoami",
