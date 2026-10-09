@@ -49,6 +49,7 @@
     "smoke": "node test-smoke.mjs",
     "test:idempotency": "node scripts/test-idempotency.mjs",
     "test:diagram-type": "node scripts/test-diagram-type.mjs",
+    "test:free-xml": "node scripts/test-free-xml.mjs",
     "test:device-login": "node scripts/test-device-login.mjs",
     "test:intool-connect": "node scripts/test-intool-connect.mjs"
   },

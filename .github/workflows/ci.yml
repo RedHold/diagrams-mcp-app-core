@@ -44,3 +44,6 @@ jobs:
 
       - name: "diagram_type left out is not sent, local stub API, no network"
         run: node scripts/test-diagram-type.mjs
+
+      - name: "Free plan null XML reads as a plan note, local stub API, no network"
+        run: node scripts/test-free-xml.mjs

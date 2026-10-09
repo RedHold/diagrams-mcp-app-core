@@ -28,6 +28,7 @@ import {
   recordUnknownCharge,
   sessionCharges,
   withTool,
+  BASE,
 } from "./client.js";
 
 const SERVER_VERSION = "1.4.7";
@@ -40,6 +41,7 @@ const server = new McpServer(
       "Typical flow: generate_diagram → (get_warnings → fix_warning | edit_diagram) → export_diagram. " +
       "Every diagram has an `id` — pass it between tools. Diagrams are output as draw.io XML " +
       "(open at app.diagrams.net) or SVG. Every plan has unlimited diagrams and edits. " +
+      "The Free plan gets watermarked images (SVG); the editable draw.io XML is the Paid plan's. " +
       "Use list_capabilities to discover valid diagram types / providers / formats before generating.",
   },
 );
@@ -106,6 +108,37 @@ const suggestionsText = (suggestions?: { component?: string | null; message: str
   );
 };
 
+// The draw.io XML is the Paid plan's file. On the Free plan the API sends
+// `xml: null`, `xml_withheld: true` and `export_url` (the watermarked SVG,
+// relative to the API host). Every tool that shows XML goes through here, so a
+// Free reply reads as a plan difference, not as a broken or empty diagram.
+const FREE_XML_NOTE = "Free plan: the editable draw.io file needs the Paid plan; here is the watermarked image:";
+
+function exportLink(d: any): string {
+  const id = d?.id ? encodeURIComponent(String(d.id)) : "";
+  const path = typeof d?.export_url === "string" && d.export_url ? d.export_url : `/api/v2/diagrams/${id}/export?format=svg`;
+  try {
+    return new URL(path, BASE + "/").toString();
+  } catch {
+    return path;
+  }
+}
+
+/** The XML block of a reply, or the Free-plan note with the watermarked image link. */
+function xmlBlock(d: any, diagramId?: string): string {
+  if (typeof d?.xml === "string" && d.xml) return `\n\ndraw.io XML:\n${d.xml}`;
+  if (d?.xml_withheld || d?.xml === null) {
+    const link = exportLink({ ...d, id: diagramId ?? d?.id });
+    return (
+      `\n\n${FREE_XML_NOTE} ${link}` +
+      `\n(The link needs your API key. To get the SVG here, call export_diagram with format "svg".` +
+      (d?.upgrade_url ? ` Upgrade: ${d.upgrade_url}` : "") +
+      ")"
+    );
+  }
+  return "";
+}
+
 const READ = { readOnlyHint: true } as const;
 const WRITE = { readOnlyHint: false, destructiveHint: false } as const;
 const DESTRUCTIVE = { readOnlyHint: false, destructiveHint: true } as const;
@@ -144,7 +177,8 @@ registerTool(
     title: "Generate a diagram",
     description:
       "Create a new cloud architecture diagram from a natural-language prompt. Returns the diagram id, " +
-      "its draw.io XML, Well-Architected warnings and score.",
+      "Well-Architected warnings and score, and its draw.io XML on the Paid plan (on Free, a link to the " +
+      "watermarked image instead).",
     inputSchema: {
       prompt: z.string().min(1).describe("What to draw, e.g. 'AWS 3-tier web app with ALB, EC2 Auto Scaling and RDS Multi-AZ'"),
       cloud_provider: z.string().optional().describe("aws | azure | gcp | kubernetes | oci | general (default: general)"),
@@ -166,7 +200,7 @@ registerTool(
           warningsText(d.warnings) +
           suggestionsText(d.suggestions) +
           usageLine(d.usage) +
-          `\n\ndraw.io XML:\n${d.xml}`,
+          xmlBlock(d),
       );
     } catch (e) {
       return failBillable(e, "generate");
@@ -180,7 +214,8 @@ registerTool(
     title: "Edit a diagram",
     description:
       "Apply a natural-language change to an existing diagram (e.g. 'add a Redis cache'). Creates a new " +
-      "version and returns the updated XML. Confirm with the user before calling — it mutates the diagram.",
+      "version and returns the updated XML (Paid plan; Free gets a link to the watermarked image). " +
+      "Confirm with the user before calling: it mutates the diagram.",
     inputSchema: {
       diagram_id: z.string().describe("The id returned by generate_diagram / list_diagrams"),
       edit_prompt: z.string().min(3).describe("The change to make, in plain language"),
@@ -191,7 +226,7 @@ registerTool(
     try {
       const d = recordCharge("edit", await withHeartbeat(extra, "Applying edit…", () =>
         apiRequestBillable("POST", `/diagrams/${encodeURIComponent(diagram_id)}/edit`, { body: { edit_prompt } })));
-      return ok(`Diagram edited.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + `\n\ndraw.io XML:\n${d.xml}`);
+      return ok(`Diagram edited.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + xmlBlock(d));
     } catch (e) {
       return failBillable(e, "edit");
     }
@@ -217,7 +252,7 @@ registerTool(
     try {
       const d = recordCharge("fix", await withHeartbeat(extra, "Fixing warning…", () =>
         apiRequestBillable("POST", `/diagrams/${encodeURIComponent(diagram_id)}/fix`, { body: { message, component, warning_type } })));
-      return ok(`Warning fixed.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + `\n\ndraw.io XML:\n${d.xml}`);
+      return ok(`Warning fixed.\nid: ${d.id}` + scoreLine(d.score) + warningsText(d.warnings) + usageLine(d.usage) + xmlBlock(d));
     } catch (e) {
       return failBillable(e, "fix");
     }
@@ -278,7 +313,7 @@ registerTool(
                 `Re-layout applied (v${last.version_number ?? "?"}).` +
                   scoreLine(last.score) +
                   warningsText(last.warnings) +
-                  `\n\ndraw.io XML:\n${last.xml ?? ""}`,
+                  xmlBlock(last, diagram_id),
               );
             }
             return ok(`Re-layout finished without changes${last.reason ? ` (${last.reason})` : ""}.`);
@@ -422,7 +457,9 @@ registerTool(
   "get_diagram",
   {
     title: "Get a diagram",
-    description: "Fetch a diagram by id — returns its title, draw.io XML, and Well-Architected score.",
+    description:
+      "Fetch a diagram by id. Returns its title, Well-Architected score, and draw.io XML on the Paid plan " +
+      "(on Free, a link to the watermarked image instead).",
     inputSchema: { diagram_id: z.string().describe("The diagram id") },
     annotations: READ,
   },
@@ -433,7 +470,7 @@ registerTool(
         `id: ${d.id}\ntitle: ${d.title}\ncloud: ${d.cloud_provider} · type: ${d.diagram_type} · ${d.is_public ? "public" : "private"}` +
           scoreLine(d.score) +
           suggestionsText(d.suggestions) +
-          `\n\ndraw.io XML:\n${d.xml}`,
+          xmlBlock(d),
       );
     } catch (e) {
       return fail(e);
@@ -499,7 +536,8 @@ registerTool(
     title: "Export a diagram",
     description:
       "Export a diagram as a raw file: `drawio` (open at app.diagrams.net) or `svg`. Returns the file content directly. " +
-      "Exports are free on every plan. Free-plan SVG exports carry a watermark.",
+      "`svg` works on every plan; Free-plan images carry a watermark. The editable `drawio` file needs the Paid plan: " +
+      "on Free, asking for `drawio` returns the watermarked SVG instead.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       format: z.enum(["drawio", "svg"]).default("drawio").describe("drawio or svg"),
@@ -507,13 +545,24 @@ registerTool(
     annotations: READ,
   },
   async ({ diagram_id, format }) => {
+    const path = `/diagrams/${encodeURIComponent(diagram_id)}/export`;
     try {
-      const text = await apiRequest<string>("GET", `/diagrams/${encodeURIComponent(diagram_id)}/export`, {
-        query: { format },
-        raw: true,
-      });
+      const text = await apiRequest<string>("GET", path, { query: { format }, raw: true });
       return ok(`Exported ${format}:\n\n${text}`);
     } catch (e) {
+      // Free plan asked for the draw.io file: hand over the watermarked image
+      // instead of an error, and say why.
+      if (format === "drawio" && e instanceof ApiError && e.code === "UPGRADE_REQUIRED") {
+        try {
+          const svg = await apiRequest<string>("GET", path, { query: { format: "svg" }, raw: true });
+          return ok(
+            `${FREE_XML_NOTE} ${exportLink({ id: diagram_id })}\n` +
+              `Upgrade: https://diagrams.so/pricing\n\nExported svg (watermarked):\n\n${svg}`,
+          );
+        } catch (e2) {
+          return fail(e2);
+        }
+      }
       return fail(e);
     }
   },
@@ -557,7 +606,9 @@ registerTool(
   "get_version",
   {
     title: "Get a diagram version",
-    description: "Fetch a specific version's XML + Well-Architected score (e.g. to inspect before reverting). Free.",
+    description:
+      "Fetch a specific version's Well-Architected score and XML (XML on the Paid plan; Free gets a link to the " +
+      "watermarked image), e.g. to inspect before reverting. No charge.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       version_id: z.string().describe("The version id (from list_versions)"),
@@ -574,7 +625,7 @@ registerTool(
       // version_id the caller passed so it isn't mistaken for a revert target.
       return ok(
         `diagram_id: ${d.id}\nversion_id: ${version_id}\ntitle: ${d.title}` +
-          scoreLine(d.score) + `\n\ndraw.io XML:\n${d.xml}`,
+          scoreLine(d.score) + xmlBlock(d),
       );
     } catch (e) {
       return fail(e);
@@ -606,7 +657,7 @@ registerTool(
           `Re-layout done (v${s.version_number ?? "?"}).` +
             scoreLine(s.score) +
             warningsText(s.warnings) +
-            `\n\ndraw.io XML:\n${s.xml ?? ""}`,
+            xmlBlock(s, diagram_id),
         );
       }
       if (s.status === "done") return ok(`Re-layout finished without changes${s.reason ? ` (${s.reason})` : ""}.`);

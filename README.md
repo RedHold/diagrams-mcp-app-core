@@ -75,8 +75,9 @@ More things worth asking, once you have a diagram:
 Every plan has unlimited diagrams and edits. Nothing is metered; there is only a per-minute rate
 limit. The Paid plan adds no watermark and draw.io export. Free diagrams can be private.
 
-The `.drawio` file the assistant saves opens at [app.diagrams.net](https://app.diagrams.net) or
-in the desktop app, fully editable — it is real draw.io XML, not a picture.
+On the Paid plan the `.drawio` file the assistant saves opens at [app.diagrams.net](https://app.diagrams.net)
+or in the desktop app, fully editable: it is real draw.io XML, not a picture. On the Free plan the
+tools return a watermarked image (SVG) instead, and say so; the editable draw.io file needs the Paid plan.
 
 **Prefer not to use an assistant at all?** [diagrams.so/create](https://diagrams.so/create) has
 the same thing as a web page: type the prompt in the box. No install, no `login`, no MCP.
@@ -87,7 +88,7 @@ the same thing as a web page: type the prompt in the box. No install, no `login`
 
 | Tool | What it does |
 |---|---|
-| `generate_diagram` | Create a diagram from a prompt → id + draw.io XML + warnings + score |
+| `generate_diagram` | Create a diagram from a prompt → id + warnings + score + draw.io XML (Paid) or a watermarked image link (Free) |
 | `edit_diagram` | Apply a natural-language change (new version) |
 | `fix_warning` | Resolve one Well-Architected warning |
 | `relayout_diagram` | AI re-arrange the layout (async; asks for `confirm=true`) |
@@ -101,12 +102,12 @@ the same thing as a web page: type the prompt in the box. No install, no `login`
 
 | Tool | What it does |
 |---|---|
-| `get_diagram` | Fetch a diagram's XML + score |
+| `get_diagram` | Fetch a diagram's score + XML (Paid) or a watermarked image link (Free) |
 | `list_diagrams` | List your diagrams (cursor-paginated) |
 | `get_warnings` | Well-Architected findings for a diagram |
-| `export_diagram` | Raw `drawio` or `svg` file (Free-plan files carry a watermark; Paid has none) |
+| `export_diagram` | Raw `svg` (every plan; watermarked on Free) or `drawio` (Paid; on Free you get the watermarked SVG) |
 | `list_versions` | Version history (with `is_current`) |
-| `get_version` | A specific version's XML + score |
+| `get_version` | A specific version's score + XML (Paid) or a watermarked image link (Free) |
 | `get_relayout_status` | Poll an async re-layout job |
 | `search_gallery` | Search public community + curated library diagrams |
 | `enhance_prompt` | Turn a rough idea into a detailed prompt |

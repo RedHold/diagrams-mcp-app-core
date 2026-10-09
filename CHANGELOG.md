@@ -19,6 +19,14 @@ Wording changes only; the MCP server sends the same requests as before.
   looks up a balance. A 402 now says the task needs the Paid plan (no
   watermark, draw.io export). The API field names (`credits_charged`,
   `credits_remaining`) are unchanged so existing code keeps working.
+- **Free plan: watermarked images, not the draw.io file.** The API now
+  leaves `xml` null on the Free plan and sends a link to the watermarked SVG.
+  `generate_diagram`, `edit_diagram`, `fix_warning`, `get_diagram`,
+  `get_version`, `relayout_diagram` and `get_relayout_status` say "Free plan:
+  the editable draw.io file needs the Paid plan" with that link instead of
+  printing an empty diagram, and `export_diagram` with `drawio` on Free hands
+  back the watermarked SVG instead of an error. Paid replies are unchanged. A
+  new stub test, `scripts/test-free-xml.mjs` (run in CI), covers both plans.
 
 ## [1.4.6] — 2026-08
 
