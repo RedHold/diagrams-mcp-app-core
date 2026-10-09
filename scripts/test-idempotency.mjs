@@ -185,7 +185,7 @@ try {
   if (!hist.text.includes("unknown outcome")) fail(`tally must show the unknown-outcome call:\n${hist.text}`);
   if (!hist.text.includes("ledger above is authoritative")) fail("tally must defer to the ledger");
   // Confirmed = scenario 1 (replayed usage) + scenario 2 (completed usage).
-  if (!hist.text.includes("2 credit(s) confirmed across 2 task(s)"))
+  if (!hist.text.includes("2 task(s) confirmed"))
     fail(`confirmed tally wrong (expected 2 confirmed + 1 unknown):\n${hist.text}`);
   okLog("exhausted retries → honest UNKNOWN tally entry + ledger-first guidance");
 

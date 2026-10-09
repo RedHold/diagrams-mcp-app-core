@@ -2,8 +2,8 @@
 
 ## [1.4.7] - 2026-10
 
-Lets Diagrams pick the kind of diagram. One wording change; the server sends
-the same requests as before.
+Lets Diagrams pick the kind of diagram, and drops the old metering wording.
+Wording changes only; the MCP server sends the same requests as before.
 
 - **`generate_diagram` no longer says the type defaults to architecture.** That
   line told calling AIs to fill in `architecture` on every request. The field
@@ -13,6 +13,12 @@ the same requests as before.
   the server default.
 - A left-out type was already omitted from the request body. A new free test,
   `scripts/test-diagram-type.mjs` (run in CI), keeps it that way.
+- **Unlimited diagrams and edits on every plan.** Tool descriptions,
+  replies, CLI lines and docs no longer talk about a balance or a cost per
+  task. Replies show your plan instead of a balance, and `login` no longer
+  looks up a balance. A 402 now says the task needs the Paid plan (no
+  watermark, draw.io export). The API field names (`credits_charged`,
+  `credits_remaining`) are unchanged so existing code keeps working.
 
 ## [1.4.6] — 2026-08
 

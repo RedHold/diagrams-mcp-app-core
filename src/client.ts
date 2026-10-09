@@ -12,8 +12,8 @@ import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 
 export const BASE = (process.env.DIAGRAMS_API_BASE || "https://api.diagrams.so/api/v2").replace(/\/+$/, "");
-// Identify this client so the API attributes charges to source="mcp" in the
-// credit-consumption history (X-Diagrams-Client wins; User-Agent is a fallback).
+// Identify this client so the API attributes tasks to source="mcp" in the
+// task history (X-Diagrams-Client wins; User-Agent is a fallback).
 export const CLIENT_ID = "mcp/1.4.7";
 export const USER_AGENT = "@diagrams-so/mcp/1.4.7";
 // Safety-net timeout so a hung/slow API surfaces a clean tool error instead of
@@ -401,7 +401,7 @@ export async function apiRequest<T = any>(
     } else if (res.status === 402) {
       const upgradeUrl =
         j?.error?.upgrade_url ?? j?.error?.details?.upgrade_url ?? j?.upgrade_url ?? "https://diagrams.so/billing";
-      message = `Out of credits — free credits are one-time. Top up ($5 for 25) or upgrade: ${upgradeUrl}`;
+      message = `This needs the Paid plan (no watermark, draw.io export). Upgrade: ${upgradeUrl}`;
     }
     throw new ApiError(code, message, res.status, requestId);
   }
@@ -485,7 +485,9 @@ export async function apiRequestBillable<T = any>(
   throw lastErr;
 }
 
-/** The `usage` object every billable endpoint returns. */
+/** The `usage` object every generate/edit/fix endpoint returns. The field
+ * names are kept so existing code does not break: every plan has unlimited
+ * diagrams and edits, and credits_remaining is always -1 now. */
 export interface Usage {
   credits_charged: number;
   credits_remaining: number;
@@ -494,11 +496,11 @@ export interface Usage {
 
 export function usageLine(usage?: Usage | null): string {
   if (!usage) return "";
-  return `\nCredits: ${usage.credits_charged} charged · ${usage.credits_remaining} remaining (${usage.tier ?? "?"}).`;
+  return usage.tier ? `\nPlan: ${usage.tier}.` : "";
 }
 
-/** In-process tally of what each billable task charged this MCP session, so the
- * agent can answer "how much did each task cost?" instantly (get_usage_history
+/** In-process tally of the tasks this MCP session ran, so the agent can
+ * answer "did that task already run?" instantly (get_usage_history
  * gives the durable, cross-session record).
  *
  * Audit M3: the tally counts only what THIS PROCESS saw. A call that failed
@@ -509,8 +511,6 @@ export interface SessionCharge {
   action: string;
   status: "confirmed" | "unknown";
   diagramId?: string;
-  creditsCharged?: number;
-  creditsRemaining?: number;
   note?: string;
 }
 export const sessionCharges: SessionCharge[] = [];
@@ -523,8 +523,6 @@ export function recordCharge<T extends { id?: string; usage?: Usage | null }>(ac
       action,
       status: "confirmed",
       diagramId: result?.id,
-      creditsCharged: u.credits_charged,
-      creditsRemaining: u.credits_remaining,
     });
   }
   return result;

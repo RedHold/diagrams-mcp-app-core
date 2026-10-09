@@ -39,7 +39,7 @@ const server = new McpServer(
       "Generate, edit, and manage cloud architecture diagrams via Diagrams.so. " +
       "Typical flow: generate_diagram → (get_warnings → fix_warning | edit_diagram) → export_diagram. " +
       "Every diagram has an `id` — pass it between tools. Diagrams are output as draw.io XML " +
-      "(open at app.diagrams.net) or SVG. Generation/edit/fix/re-layout cost credits; reads are free. " +
+      "(open at app.diagrams.net) or SVG. Every plan has unlimited diagrams and edits. " +
       "Use list_capabilities to discover valid diagram types / providers / formats before generating.",
   },
 );
@@ -81,10 +81,10 @@ const failBillable = (e: unknown, action: string): ToolResult => {
   if (isAmbiguous(e)) {
     recordUnknownCharge(action, (e as ApiError)?.code);
     base.content[0].text +=
-      `\n\nIMPORTANT: this ${action} may still have completed AND been charged server-side ` +
+      `\n\nIMPORTANT: this ${action} may still have completed on the server ` +
       `(the response was lost, not necessarily the work). Before retrying, call ` +
       `get_usage_history (and list_diagrams) to check whether the task already exists — ` +
-      `a blind retry can create a second diagram and a second charge.`;
+      `a blind retry can create a second diagram.`;
   }
   return base;
 };
@@ -144,7 +144,7 @@ registerTool(
     title: "Generate a diagram",
     description:
       "Create a new cloud architecture diagram from a natural-language prompt. Returns the diagram id, " +
-      "its draw.io XML, Well-Architected warnings, score, and credits used. Costs credits.",
+      "its draw.io XML, Well-Architected warnings and score.",
     inputSchema: {
       prompt: z.string().min(1).describe("What to draw, e.g. 'AWS 3-tier web app with ALB, EC2 Auto Scaling and RDS Multi-AZ'"),
       cloud_provider: z.string().optional().describe("aws | azure | gcp | kubernetes | oci | general (default: general)"),
@@ -180,7 +180,7 @@ registerTool(
     title: "Edit a diagram",
     description:
       "Apply a natural-language change to an existing diagram (e.g. 'add a Redis cache'). Creates a new " +
-      "version and returns the updated XML. Costs credits. Confirm with the user before calling — it mutates the diagram.",
+      "version and returns the updated XML. Confirm with the user before calling — it mutates the diagram.",
     inputSchema: {
       diagram_id: z.string().describe("The id returned by generate_diagram / list_diagrams"),
       edit_prompt: z.string().min(3).describe("The change to make, in plain language"),
@@ -204,7 +204,7 @@ registerTool(
     title: "Fix one warning",
     description:
       "Resolve a single Well-Architected warning (from get_warnings), leaving the rest of the diagram " +
-      "untouched. Creates a new version. Costs credits.",
+      "untouched. Creates a new version.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
       message: z.string().min(3).describe("The warning's `message` (as returned by get_warnings)"),
@@ -230,12 +230,12 @@ registerTool(
     title: "Re-arrange layout with AI",
     description:
       "Automatically re-arrange a diagram's layout for readability (async). Starts the job and waits for it " +
-      "to finish, returning the re-laid XML + fresh warnings/score. Every re-layout costs credits based on " +
-      "the tokens it uses (like edit/fix) and requires confirm=true. If the job is still running when the " +
+      "to finish, returning the re-laid XML + fresh warnings/score. Requires confirm=true, because it " +
+      "replaces the current layout. If the job is still running when the " +
       "wait elapses, returns a job_id you can poll with get_relayout_status.",
     inputSchema: {
       diagram_id: z.string().describe("The diagram id"),
-      confirm: z.boolean().optional().describe("Consent to the token-based charge (required to start)."),
+      confirm: z.boolean().optional().describe("Confirm you want the layout re-arranged (required to start)."),
     },
     annotations: WRITE,
   },
@@ -271,7 +271,7 @@ registerTool(
               if (start?.chargeable) {
                 recordUnknownCharge(
                   "relayout",
-                  "chargeable re-layout applied; exact credits are in get_usage_history",
+                  "re-layout applied; the task is listed in get_usage_history",
                 );
               }
               return ok(
@@ -731,8 +731,8 @@ registerTool(
 registerTool(
   "get_usage",
   {
-    title: "Get usage & credits",
-    description: "Show your current plan, credits remaining, and per-action cost estimates. Free.",
+    title: "Get usage & plan",
+    description: "Show your current plan and usage. Every plan has unlimited diagrams and edits. Free.",
     inputSchema: {},
     annotations: READ,
   },
@@ -749,11 +749,11 @@ registerTool(
 registerTool(
   "get_usage_history",
   {
-    title: "Credit consumption history",
+    title: "Task history",
     description:
-      "List how much credit each past task (generate/edit/fix/relayout) charged — newest first, with the " +
-      "diagram it touched and the surface (api/sdk/mcp) that ran it. Use this to answer 'how much did each " +
-      "task cost?'. Also shows a running tally of tasks performed in THIS session. Free (read-only).",
+      "List past tasks (generate/edit/fix/relayout), newest first, with the diagram each one touched and " +
+      "the surface (api/sdk/mcp) that ran it. Use this to check whether a task already ran. Also shows a " +
+      "running tally of tasks performed in THIS session. Free (read-only).",
     inputSchema: {
       limit: z.number().int().min(1).max(100).optional().describe("Max rows to return (default 20)."),
       cursor: z.string().optional().describe("Pagination cursor from a previous call's next_cursor."),
@@ -773,12 +773,12 @@ registerTool(
       const lines = (page.items ?? []).map(
         (i: any) =>
           `• ${new Date(i.created_at).toISOString()}  ${i.action_type.padEnd(8)} ` +
-          `${String(i.credits_charged).padStart(4)} cr  [${i.source ?? "—"}]` +
+          `[${i.source ?? "—"}]` +
           (i.diagram_id ? `  diagram ${i.diagram_id}` : ""),
       );
-      const s = page.summary ?? { total_credits_charged: 0, task_count: 0 };
+      const s = page.summary ?? { task_count: 0 };
       let out =
-        `Credit consumption — ${s.task_count} task(s), ${s.total_credits_charged} credit(s) total` +
+        `Task history — ${s.task_count} task(s)` +
         (action || source ? " (filtered)" : "") +
         `:\n${lines.join("\n") || "  (no tasks yet)"}`;
       if (page.has_more) out += `\n\nMore available — call again with cursor="${page.next_cursor}".`;
@@ -792,14 +792,13 @@ registerTool(
         const sess = sessionCharges
           .map((c) =>
             c.status === "confirmed"
-              ? `  • ${c.action}: ${c.creditsCharged} cr${c.diagramId ? ` (${c.diagramId})` : ""}`
-              : `  • ${c.action}: UNKNOWN — call failed mid-flight (${c.note ?? "no response"}); may still have been charged`,
+              ? `  • ${c.action}${c.diagramId ? ` (${c.diagramId})` : ""}`
+              : `  • ${c.action}: UNKNOWN — call failed mid-flight (${c.note ?? "no response"}); may still have run on the server`,
           )
           .join("\n");
-        const sessTotal = confirmed.reduce((a, c) => a + (c.creditsCharged ?? 0), 0);
         out +=
           `\n\nThis session (this process only — the ledger above is authoritative): ` +
-          `${sessTotal} credit(s) confirmed across ${confirmed.length} task(s)` +
+          `${confirmed.length} task(s) confirmed` +
           (unknown.length ? ` + ${unknown.length} call(s) with unknown outcome` : "") +
           `:\n${sess}`;
       }

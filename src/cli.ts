@@ -102,30 +102,19 @@ function openBrowser(url: string): void {
 
 
 // ---------------------------------------------------------------------------
-// Shared "who is this key" line: email + mode from /me, approx credits from
-// /me if present, else /usage. Every field is optional — print what we can.
+// Shared "who is this key" line: email + mode from /me. Every field is
+// optional — print what we can.
 // ---------------------------------------------------------------------------
 
-const OUT_OF_CREDITS_MSG_FALLBACK =
-  "Out of credits — free credits are one-time. Top up ($5 for 25) or upgrade: https://diagrams.so/pricing";
+const PAID_PLAN_MSG_FALLBACK =
+  "This needs the Paid plan (no watermark, draw.io export). Upgrade: https://diagrams.so/pricing";
 
 async function accountLine(base: string, key: string, fallbackLivemode?: boolean): Promise<string> {
   const m = await getJsonAuthed(`${base}/me`, key);
   const email = m?.email ?? "(unknown email)";
   const livemode = typeof m?.livemode === "boolean" ? m.livemode : fallbackLivemode;
   const mode = livemode === undefined ? "unknown mode" : livemode ? "live" : "test";
-  let credits: unknown = m?.credits_remaining ?? m?.credits;
-  if (typeof credits !== "number") {
-    try {
-      const u = await getJsonAuthed(`${base}/usage`, key);
-      credits = u?.credits_remaining ?? u?.credits_left ?? u?.credits?.remaining ?? u?.credits;
-    } catch {
-      /* credits stay unknown */
-    }
-  }
-  return (
-    `Connected as ${email} (${mode}).` + (typeof credits === "number" ? ` ~${credits} credits left.` : "")
-  );
+  return `Connected as ${email} (${mode}).`;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +205,7 @@ async function cmdLogin(args: string[]): Promise<number> {
   console.log("  (If your browser didn't open, visit the link above yourself.)");
   if (!livemode) {
     console.log("");
-    console.log("  Test keys charge the same credits as live — not a free sandbox (lower rate limits only).");
+    console.log("  Test keys act on your real account, the same as live keys (lower rate limits only).");
   }
   console.log("");
   openBrowser(verifyUrl);
@@ -371,7 +360,7 @@ async function cmdWhoami(args: string[]): Promise<number> {
     if (msg.includes("401")) {
       console.error(`Session credential expired or revoked — run \`${CLI_NAME} login\` again.`);
     } else if (msg.includes("402")) {
-      console.error(OUT_OF_CREDITS_MSG_FALLBACK);
+      console.error(PAID_PLAN_MSG_FALLBACK);
     } else {
       console.error(`Could not verify the credential against ${base}: ${msg}`);
     }
