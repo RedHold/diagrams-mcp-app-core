@@ -22,7 +22,7 @@
       "environmentVariables": [
         {
           "name": "DIAGRAMS_API_KEY",
-          "description": "Diagrams.so API key (dgz_live_... or dgz_test_...). Optional since 1.4.0: run `npx @diagrams-so/mcp login` once instead. Or create a key at https://diagrams.so under Settings then AI Provider.",
+          "description": "Diagrams.so API key (dgz_live_... or dgz_test_...). Optional since 1.4.0: run `npx @diagrams-so/mcp login` once instead. Or create a key at https://diagrams.so under Settings then API Keys.",
           "isRequired": false,
           "isSecret": true
         },
